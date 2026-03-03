@@ -25,6 +25,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+ERROR_FILE = "userbot_errors.txt"
+
+class ErrorFileHandler(logging.Handler):
+    def emit(self, record):
+        if record.levelno >= logging.ERROR:
+            try:
+                with open(ERROR_FILE, "a", encoding="utf-8") as f:
+                    f.write(self.format(record)[:300] + "\n")
+            except:
+                pass
+logger.addHandler(ErrorFileHandler())
+
 @contextmanager
 def get_db_connection():
     conn = None
@@ -726,7 +738,7 @@ async def message_handler(event):
                     logger.error(f"Tugmalar yuborishda xatolik: {resp.status}")
             
             # MAXSUS: reklama guruhlariga yuborish (telefon/havola O'CHIRILADI - admin orqali bog'lanish uchun)
-            reklama_guruhlar = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha"]
+            reklama_guruhlar = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]
             try:
                 clean_text = reklama_matndan_olib_tashlash(text_content or "")
                 clean_bio = reklama_matndan_olib_tashlash(user_bio or "")
