@@ -738,7 +738,7 @@ async def message_handler(event):
                 
                 # Tugmani tayyorlash - reklama guruhda to'g'ridan-to'g'ri admin lichkasiga
                 admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{bot_username}?start=haydovchi"
-                special_buttons = [[{"text": "✅ Zakazni olish", "url": admin_link}]]
+                special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
                 
                 for special_group in reklama_guruhlar:
                     try:
