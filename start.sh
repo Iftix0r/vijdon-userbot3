@@ -71,7 +71,7 @@ if [ "$USE_SCREEN" = true ] || ! command -v pm2 &> /dev/null; then
         exit 0
     fi
     
-    screen -dmS vijdon-userbot bash -c "cd '$PROJECT_DIR' && source venv/bin/activate && python main.py"
+    screen -dmS vijdon-userbot bash -c "cd '$PROJECT_DIR' && source venv/bin/activate && python bot.py"
     
     sleep 2
     
@@ -91,7 +91,7 @@ else
     pm2 delete vijdon-userbot 2>/dev/null || true
     
     # Yangi process ishga tushirish
-    pm2 start main.py --name "vijdon-userbot" --interpreter python
+    pm2 start bot.py --name "vijdon-userbot" --interpreter python
     
     # PM2 saqlash
     pm2 save

@@ -95,14 +95,21 @@ def reklama_matndan_olib_tashlash(text):
     if not text or not text.strip():
         return text
     t = text
-    # Telefon raqamlar
-    t = re.sub(r'\+998\d{9}\b', '', t)
-    t = re.sub(r'998\d{9}\b', '', t)
+    # Telefon raqamlar - barcha formatlar
+    t = re.sub(r'\+998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
+    t = re.sub(r'998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
     t = re.sub(r'\b9\d{8}\b', '', t)
-    t = re.sub(r'\d{2}\s*\d{3}\s*\d{2}\s*\d{2}', '', t)
-    t = re.sub(r'\d{2}-\d{3}-\d{2}-\d{2}', '', t)
+    t = re.sub(r'\b9\d\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)   # 90 123 45 67
+    t = re.sub(r'\b9\d\s+\d{3}\s+\d{4}\b', '', t)            # 90 123 4567
+    t = re.sub(r'\b9\d\s+\d{7}\b', '', t)                    # 90 1234567
+    t = re.sub(r'\b9\d\s*[-]?\s*\d{3}\s*[-]?\s*\d{2}\s*[-]?\s*\d{2}\b', '', t)
+    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)  # 99 999 99 99
+    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{4}\b', '', t)          # 99 999 9999
+    t = re.sub(r'\b\d{3}\s+\d{2}\s+\d{2}\s+\d{2}\b', '', t)  # 999 99 99 99
+    t = re.sub(r'\d{2}[\s\-]\d{3}[\s\-]\d{2}[\s\-]\d{2}', '', t)
     t = re.sub(r'[Tt]el\.?\s*:?\s*', '', t)
     t = re.sub(r'[Tt]elefon\.?\s*:?\s*', '', t)
+    t = re.sub(r'[Rr]aqam\.?\s*:?\s*', '', t)
     # Havolalar
     t = re.sub(r'https?://[^\s]+', '', t)
     t = re.sub(r't\.me/[^\s]+', '', t)
