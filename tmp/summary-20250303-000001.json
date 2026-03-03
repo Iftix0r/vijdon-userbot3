@@ -1,0 +1,4 @@
+{
+  "summary": "Reklama guruhda (vijdontaxireklama) 'Zakazni olish' tugmasini bosganda endi zakaz ko'rsatilmaydi. O'rniga haydovchi bo'lish uchun admin ma'lumotlari chiqadi. main.py: tugma URL i zakaz_N dan haydovchi ga o'zgartirildi. bot.py: start=haydovchi handler qo'shildi, HAYDOVCHI_ADMIN_PHONE va HAYDOVCHI_ADMIN_USERNAME env o'zgaruvchilari orqali admin kontakt ko'rsatiladi. README yangilandi.",
+  "current_status": "Reklama guruh zakaz tugmasi haydovchi admin ma'lumotlarini ko'rsatadi. .env da HAYDOVCHI_ADMIN_PHONE va HAYDOVCHI_ADMIN_USERNAME sozlash kerak."
+}

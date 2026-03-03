@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the Chat action xatoligi error: Telethon's ChatAction event uses `new_title` and `new_photo`, not `title_changed` and `photo_changed`. Updated main.py lines 284 and 289 to use the correct attributes.",
+  "current_status": "Userbot main.py fixed; ChatAction handler now uses valid Telethon event attributes. No linter errors."
+}

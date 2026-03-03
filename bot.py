@@ -5,6 +5,8 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 import sqlite3
 import os
 from dotenv import load_dotenv
+from telethon import TelegramClient
+from telethon.errors import SessionPasswordNeededError
 
 import re
 import json
@@ -43,6 +45,10 @@ def get_db_connection():
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ORDER_GROUP_ID = int(os.getenv('ORDER_GROUP_ID'))
 ADMIN_IDS = [int(x.strip()) for x in os.getenv('ADMIN_IDS', '0').split(',')]
+API_ID = int(os.getenv('API_ID', 0))
+API_HASH = os.getenv('API_HASH', '')
+HAYDOVCHI_ADMIN_PHONE = os.getenv('HAYDOVCHI_ADMIN_PHONE', '')
+HAYDOVCHI_ADMIN_USERNAME = os.getenv('HAYDOVCHI_ADMIN_USERNAME', '').strip().lstrip('@')
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -76,6 +82,35 @@ def init_keywords_db():
         CREATE TABLE IF NOT EXISTS admins (
             user_id INTEGER PRIMARY KEY,
             added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_name TEXT UNIQUE NOT NULL,
+            phone TEXT,
+            tg_user_id INTEGER,
+            username TEXT,
+            added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active INTEGER DEFAULT 1
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS incomplete_orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_number INTEGER,
+            user_id INTEGER,
+            user_name TEXT,
+            original_message TEXT,
+            missing_info TEXT,
+            group_name TEXT,
+            group_id INTEGER,
+            message_id INTEGER,
+            status TEXT DEFAULT 'pending',
+            admin_id INTEGER,
+            admin_info TEXT,
+            created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_date DATETIME
         )
     ''')
     
@@ -119,6 +154,81 @@ def delete_keyword(word_type, word):
         logger.error(f"Error deleting keyword: {e}")
         raise
 
+# Incomplete orders functions
+def save_incomplete_order(order_number, user_id, user_name, original_message, missing_info, group_name, group_id, message_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO incomplete_orders 
+                (order_number, user_id, user_name, original_message, missing_info, group_name, group_id, message_id, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+            ''', (order_number, user_id, user_name, original_message, missing_info, group_name, group_id, message_id))
+            conn.commit()
+            logger.info(f"Incomplete order saved: #{order_number} - {user_name}")
+            return cursor.lastrowid
+    except Exception as e:
+        logger.error(f"Error saving incomplete order: {e}")
+        raise
+
+def get_incomplete_orders(status='pending'):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, order_number, user_name, original_message, missing_info, group_name, created_date
+                FROM incomplete_orders 
+                WHERE status = ?
+                ORDER BY created_date DESC
+                LIMIT 20
+            ''', (status,))
+            orders = cursor.fetchall()
+            return orders
+    except Exception as e:
+        logger.error(f"Error getting incomplete orders: {e}")
+        return []
+
+def complete_incomplete_order(order_id, admin_id, admin_info):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE incomplete_orders 
+                SET status = 'completed', admin_id = ?, admin_info = ?, completed_date = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (admin_id, admin_info, order_id))
+            conn.commit()
+            logger.info(f"Incomplete order completed: #{order_id} by admin {admin_id}")
+            return True
+    except Exception as e:
+        logger.error(f"Error completing incomplete order: {e}")
+        return False
+
+def get_incomplete_order_by_id(order_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT * FROM incomplete_orders WHERE id = ?
+            ''', (order_id,))
+            order = cursor.fetchone()
+            return order
+    except Exception as e:
+        logger.error(f"Error getting incomplete order by ID: {e}")
+        return None
+
+def delete_incomplete_order(order_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM incomplete_orders WHERE id = ?', (order_id,))
+            conn.commit()
+            logger.info(f"Incomplete order deleted: #{order_id}")
+            return True
+    except Exception as e:
+        logger.error(f"Error deleting incomplete order: {e}")
+        return False
+
 
 
 # Asosiy menu
@@ -127,7 +237,8 @@ def main_menu():
         keyboard=[
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🔍 Qidiruv")],
             [KeyboardButton(text="📝 So'zlar qo'shish"), KeyboardButton(text="⚙️ Sozlamalar")],
-            [KeyboardButton(text="📋 Guruh statistikasi"), KeyboardButton(text="🕜 Oxirgi 10 ta zakaz")]
+            [KeyboardButton(text="📋 Guruh statistikasi"), KeyboardButton(text="🕜 Oxirgi 10 ta zakaz")],
+            [KeyboardButton(text="⚠️ To'liq bo'lmagan zakazlar"), KeyboardButton(text="✅ Zakazni to'ldirish")]
         ],
         resize_keyboard=True
     )
@@ -158,8 +269,37 @@ def is_admin(user_id):
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    # Buyurtmani ko'rish (deep link orqali)
     args = message.text.split()
+    
+    # Reklama guruhdan: haydovchi bo'lish uchun admin ma'lumotlari
+    if len(args) > 1 and args[1] == 'haydovchi':
+        buttons = []
+        if HAYDOVCHI_ADMIN_PHONE:
+            phone = HAYDOVCHI_ADMIN_PHONE.replace(' ', '').replace('-', '')
+            if not phone.startswith('+'):
+                phone = '+998' + phone if phone.startswith('998') else '+' + phone
+            buttons.append([InlineKeyboardButton(text="📞 Admin bilan bog'lanish", url=f"https://onmap.uz/tel/{phone}")])
+        if HAYDOVCHI_ADMIN_USERNAME:
+            buttons.append([InlineKeyboardButton(text=f"👤 @{HAYDOVCHI_ADMIN_USERNAME}", url=f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}")])
+        
+        if buttons:
+            text = (
+                "🚗 <b>Haydovchi bo'lish uchun</b>\n\n"
+                "Bizning jamoamizga qo'shilmoqchimisiz? "
+                "Quyidagi admin bilan bog'laning:"
+            )
+            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        else:
+            text = (
+                "🚗 <b>Haydovchi bo'lish uchun</b>\n\n"
+                "Admin ma'lumotlari hozircha sozlanmagan. "
+                "Guruh adminlariga murojaat qiling."
+            )
+            keyboard = None
+        await message.answer(text, reply_markup=keyboard, parse_mode='HTML')
+        return
+    
+    # Buyurtmani ko'rish (deep link orqali)
     if len(args) > 1 and args[1].startswith('zakaz_'):
         try:
             order_num = int(args[1].replace('zakaz_', ''))
@@ -387,6 +527,44 @@ async def add_words_handler(message: types.Message):
         reply_markup=words_menu()
     )
 
+@dp.message(lambda message: message.text == "⚠️ To'liq bo'lmagan zakazlar")
+async def incomplete_orders_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    incomplete_orders = get_incomplete_orders('pending')
+    
+    if not incomplete_orders:
+        await message.answer("✅ Barcha zakazlar to'liq!")
+        return
+    
+    text = "⚠️ To'liq bo'lmagan zakazlar:\n\n"
+    for i, order in enumerate(incomplete_orders, 1):
+        order_id, order_number, user_name, original_msg, missing_info, group_name, created_date = order
+        text += f"{i}. <b>Zakaz #{order_number}</b>\n"
+        text += f"   👤 {user_name}\n"
+        text += f"   💬 {original_msg[:50]}...\n"
+        text += f"   ❌ Yetishmayotgan: {missing_info}\n"
+        text += f"   🫂 {group_name}\n"
+        text += f"   📅 {created_date[:16]}\n"
+        text += f"   🆔 ID: {order_id}\n\n"
+    
+    await message.answer(text, parse_mode='HTML')
+
+@dp.message(lambda message: message.text == "✅ Zakazni to'ldirish")
+async def complete_order_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    user_states[message.from_user.id] = 'waiting_order_id_to_complete'
+    await message.answer(
+        "✅ Zakazni to'ldirish:\n\n"
+        "To'ldirmoqchi bo'lgan zakaz ID sini yuboring:\n"
+        "(To'liq bo'lmagan zakazlar ro'yxatidan ID ni oling)"
+    )
+
 # Viloyatlar menusi
 def regions_menu():
     keyboard = InlineKeyboardMarkup(
@@ -485,6 +663,7 @@ def phone_request_menu():
 # Foydalanuvchi holati
 user_states = {}
 taxi_users = {}  # Taksi foydalanuvchilari uchun
+pending_profile_auth = {}  # Profil qo'shish: {user_id: (client, phone, session_name)}
 
 @dp.callback_query(lambda c: c.data == "add_driver")
 async def add_driver_words(callback: types.CallbackQuery):
@@ -1047,6 +1226,100 @@ async def handle_text_message(message: types.Message):
                 )
             return
     
+    # Profil qo'shish holatlari
+    if user_id in user_states and is_admin(user_id):
+        if user_states[user_id] == 'waiting_profile_phone':
+            phone = message.text.strip().replace(' ', '').replace('-', '')
+            if not phone.startswith('+'):
+                phone = '+998' + phone if (phone.startswith('998') and len(phone) >= 9) else '+' + phone
+            if len(phone) < 12:
+                await message.answer("❌ Noto'g'ri format. Misol: +998901234567")
+                return
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT COALESCE(MAX(id), 0) + 1 FROM profiles')
+                    next_id = cursor.fetchone()[0]
+                session_name = f"userbot_profile_{next_id}"
+                client = TelegramClient(session_name, API_ID, API_HASH)
+                await client.connect()
+                await client.send_code_request(phone)
+                pending_profile_auth[user_id] = (client, phone, session_name)
+                user_states[user_id] = 'waiting_profile_code'
+                await message.answer("📱 Telegramga kod yuborildi.\n\nKodni yuboring (vergul bilan ajratib agar 2 qism bo'lsa, masalan: 12,345):")
+            except Exception as e:
+                logger.error(f"Profil kod yuborish: {e}")
+                del user_states[user_id]
+                await message.answer(f"❌ Xatolik: {e}")
+            return
+        elif user_states[user_id] == 'waiting_profile_code':
+            if user_id not in pending_profile_auth:
+                del user_states[user_id]
+                await message.answer("❌ Sessiya tugadi. Qaytadan boshlang.")
+                return
+            client, phone, session_name = pending_profile_auth[user_id]
+            code = message.text.strip().replace(',', '').replace(' ', '').replace('-', '')
+            try:
+                await client.sign_in(phone, code)
+            except SessionPasswordNeededError:
+                user_states[user_id] = 'waiting_profile_2fa'
+                await message.answer("🔐 2FA yoqilgan. Parolni yuboring:")
+                return
+            except Exception as e:
+                del pending_profile_auth[user_id]
+                del user_states[user_id]
+                await client.disconnect()
+                await message.answer(f"❌ Xatolik: {e}")
+                return
+            # Muvaffaqiyat
+            try:
+                me = await client.get_me()
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('INSERT INTO profiles (session_name, phone, tg_user_id, username) VALUES (?, ?, ?, ?)',
+                        (session_name, phone, me.id, me.username))
+                    conn.commit()
+                del pending_profile_auth[user_id]
+                del user_states[user_id]
+                await client.disconnect()
+                await message.answer(f"✅ Profil qo'shildi! (@{me.username or me.id})\n\nUserbotni qayta ishga tushiring: python main.py")
+            except Exception as e:
+                logger.error(f"Profil saqlash: {e}")
+                del pending_profile_auth[user_id]
+                del user_states[user_id]
+                await client.disconnect()
+                await message.answer(f"❌ Saqlashda xatolik: {e}")
+            return
+        elif user_states[user_id] == 'waiting_profile_2fa':
+            if user_id not in pending_profile_auth:
+                del user_states[user_id]
+                await message.answer("❌ Sessiya tugadi. Qaytadan boshlang.")
+                return
+            client, phone, session_name = pending_profile_auth[user_id]
+            try:
+                await client.sign_in(password=message.text.strip())
+            except Exception as e:
+                await message.answer(f"❌ Parol xato. Qaytadan urinib ko'ring: {e}")
+                return
+            try:
+                me = await client.get_me()
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('INSERT INTO profiles (session_name, phone, tg_user_id, username) VALUES (?, ?, ?, ?)',
+                        (session_name, phone, me.id, me.username))
+                    conn.commit()
+                del pending_profile_auth[user_id]
+                del user_states[user_id]
+                await client.disconnect()
+                await message.answer(f"✅ Profil qo'shildi! (@{me.username or me.id})\n\nUserbotni qayta ishga tushiring: python main.py")
+            except Exception as e:
+                logger.error(f"Profil saqlash: {e}")
+                del pending_profile_auth[user_id]
+                del user_states[user_id]
+                await client.disconnect()
+                await message.answer(f"❌ Saqlashda xatolik: {e}")
+            return
+
     # So'z qo'shish holatlari
     if user_id in user_states:
         if user_states[user_id] == 'waiting_driver_words':
@@ -1356,7 +1629,8 @@ def admin_menu():
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📋 Guruh boshqaruvi", callback_data="groups_menu")],
-            [InlineKeyboardButton(text="👥 Foydalanuvchilar boshqaruvi", callback_data="users_menu")]
+            [InlineKeyboardButton(text="👥 Foydalanuvchilar boshqaruvi", callback_data="users_menu")],
+            [InlineKeyboardButton(text="👤 Profillar boshqaruvi", callback_data="profiles_menu")]
         ]
     )
     return keyboard
@@ -1368,6 +1642,18 @@ def groups_menu():
             [InlineKeyboardButton(text="📤 Buyurtma guruhlari", callback_data="list_order_groups")],
             [InlineKeyboardButton(text="➕ Buyurtma guruh qo'shish", callback_data="add_order_group_prompt")],
             [InlineKeyboardButton(text="➖ Buyurtma guruh o'chirish", callback_data="remove_order_group_prompt")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
+        ]
+    )
+    return keyboard
+
+# Profillar menu
+def profiles_menu():
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Profil qo'shish", callback_data="add_profile_prompt")],
+            [InlineKeyboardButton(text="📋 Profillar ro'yxati", callback_data="list_profiles")],
+            [InlineKeyboardButton(text="➖ Profil o'chirish", callback_data="remove_profile_prompt")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
         ]
     )
@@ -1419,6 +1705,73 @@ async def users_menu_handler(callback: types.CallbackQuery):
         "👥 Foydalanuvchilar boshqaruvi:",
         reply_markup=users_menu()
     )
+
+@dp.callback_query(lambda c: c.data == "profiles_menu")
+async def profiles_menu_handler(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "👤 Profillar boshqaruvi:\n\n"
+        "Userbot bir nechta Telegram akkauntlardan ishlashi mumkin. "
+        "Har bir profil guruhlarni kuzatadi va zakazlarni qabul qiladi.",
+        reply_markup=profiles_menu()
+    )
+
+@dp.callback_query(lambda c: c.data == "add_profile_prompt")
+async def add_profile_prompt_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    if not API_ID or not API_HASH:
+        await callback.message.edit_text("❌ API_ID va API_HASH .env da sozlanishi kerak!")
+        return
+    user_states[callback.from_user.id] = 'waiting_profile_phone'
+    await callback.message.edit_text(
+        "➕ <b>Yangi profil qo'shish</b>\n\n"
+        "Telefon raqamni yuboring (+998xxxxxxxxx):",
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "list_profiles")
+async def list_profiles_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, phone, username, session_name, added_date FROM profiles ORDER BY id')
+            rows = cursor.fetchall()
+        if not rows:
+            await callback.message.edit_text("📭 Hech qanday profil yo'q.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="profiles_menu")]]))
+            return
+        text = "📋 <b>Profillar:</b>\n\n"
+        for r in rows:
+            phone = r[1] or '—'
+            username = f"@{r[2]}" if r[2] else '—'
+            text += f"• ID:{r[0]} | {phone} | {username}\n"
+        await callback.message.edit_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="profiles_menu")]]))
+    except Exception as e:
+        logger.error(f"Profillar ro'yxati: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
+
+@dp.callback_query(lambda c: c.data == "remove_profile_prompt")
+async def remove_profile_prompt_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, phone, username FROM profiles ORDER BY id')
+            rows = cursor.fetchall()
+        if not rows:
+            await callback.message.edit_text("📭 O'chirish uchun profil yo'q.")
+            return
+        buttons = [[InlineKeyboardButton(text=f"❌ {r[1] or r[2] or f'Profil #{r[0]}'}", callback_data=f"remove_profile_{r[0]}")] for r in rows]
+        buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="profiles_menu")])
+        await callback.message.edit_text("O'chiriladigan profilni tanlang:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    except Exception as e:
+        logger.error(f"Profil o'chirish: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
 
 @dp.callback_query(lambda c: c.data == "list_groups")
 async def list_groups_handler(callback: types.CallbackQuery):
@@ -1540,6 +1893,33 @@ async def list_admins_handler(callback: types.CallbackQuery):
     except Exception as e:
         logger.error(f"Adminlar ro'yxatini olishda xatolik: {e}")
         await callback.message.edit_text("❌ Xatolik yuz berdi")
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("remove_profile_"))
+async def remove_profile_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        profile_id = int(callback.data.replace("remove_profile_", ""))
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT session_name FROM profiles WHERE id = ?', (profile_id,))
+            row = cursor.fetchone()
+            if row:
+                cursor.execute('DELETE FROM profiles WHERE id = ?', (profile_id,))
+                conn.commit()
+                session_file = f"{row[0]}.session"
+                if os.path.exists(session_file):
+                    try:
+                        os.remove(session_file)
+                    except:
+                        pass
+                await callback.message.edit_text(f"✅ Profil #{profile_id} o'chirildi. Userbotni qayta ishga tushiring.")
+            else:
+                await callback.message.edit_text("❌ Profil topilmadi.")
+    except Exception as e:
+        logger.error(f"Profil o'chirish: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
 
 async def send_demo_orders():
     """Bot ishga tushganda 10 ta demo zakaz yuborish"""

@@ -45,8 +45,20 @@ API_ID = int(os.getenv('API_ID'))
 API_HASH = os.getenv('API_HASH')
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ORDER_GROUP_ID = int(os.getenv('ORDER_GROUP_ID'))
+HAYDOVCHI_ADMIN_USERNAME = os.getenv('HAYDOVCHI_ADMIN_USERNAME', '').strip().lstrip('@')
 
-client = TelegramClient('userbot', API_ID, API_HASH)
+client = TelegramClient('userbot', API_ID, API_HASH)  # Legacy - profillar bo'lmaganda
+
+def load_profiles():
+    """profiles jadvalidan aktiv profillarni olish"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, session_name, phone FROM profiles WHERE is_active = 1 ORDER BY id')
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Profillar yuklash: {e}")
+        return []
 
 def load_groups():
     try:
@@ -75,6 +87,29 @@ async def get_bot_username():
 monitored_groups = load_groups()
 bot_username = "vijdonuserbot" # Boshlang'ich qiymat
 keywords = {"driver": [], "passenger": []}
+processed_messages = set()  # (chat_id, msg_id) - ko'p profilda dublikatdan saqlash
+MAX_PROCESSED_CACHE = 10000
+
+def reklama_matndan_olib_tashlash(text):
+    """Reklama xabaridan telefon raqamlar, havolalar va @username ni olib tashlash (admin orqali bog'lanish uchun)"""
+    if not text or not text.strip():
+        return text
+    t = text
+    # Telefon raqamlar
+    t = re.sub(r'\+998\d{9}\b', '', t)
+    t = re.sub(r'998\d{9}\b', '', t)
+    t = re.sub(r'\b9\d{8}\b', '', t)
+    t = re.sub(r'\d{2}\s*\d{3}\s*\d{2}\s*\d{2}', '', t)
+    t = re.sub(r'\d{2}-\d{3}-\d{2}-\d{2}', '', t)
+    t = re.sub(r'[Tt]el\.?\s*:?\s*', '', t)
+    t = re.sub(r'[Tt]elefon\.?\s*:?\s*', '', t)
+    # Havolalar
+    t = re.sub(r'https?://[^\s]+', '', t)
+    t = re.sub(r't\.me/[^\s]+', '', t)
+    t = re.sub(r'tg://[^\s]+', '', t)
+    # @username (to'g'ridan-to'g'ri bog'lanishni oldini olish)
+    t = re.sub(r'@\w+', '', t)
+    return re.sub(r'\s+', ' ', t).strip()
 
 def load_keywords_from_db():
     try:
@@ -152,6 +187,19 @@ def init_database():
                     word TEXT NOT NULL,
                     sana DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(type, word)
+                )
+            ''')
+            
+            # Profillar (ko'p akkaunt) jadvali
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS profiles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_name TEXT UNIQUE NOT NULL,
+                    phone TEXT,
+                    tg_user_id INTEGER,
+                    username TEXT,
+                    added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    is_active INTEGER DEFAULT 1
                 )
             ''')
             
@@ -264,11 +312,10 @@ def detect_user_type(text):
     
     return '🙋♂️ Yolovchi'
 
-@client.on(events.ChatAction)
 async def chat_action_handler(event):
     """Handle chat actions like user join/leave, group title changes, etc."""
     try:
-        me = await client.get_me()
+        me = await event.client.get_me()
         chat = await event.get_chat()
         chat_title = chat.title if hasattr(chat, 'title') else 'Nomaʼlum guruh'
         
@@ -281,12 +328,12 @@ async def chat_action_handler(event):
                 print(f"⚠️ Bot guruhdan chiqarildi: {chat_title}")
         
         # Guruh nomini o'zgartirilsa
-        elif event.title_changed:
+        elif event.new_title is not None:
             logger.info(f"Guruh nomi o'zgartirildi: {chat_title} ({event.chat_id})")
             print(f"📝 Guruh nomi o'zgartirildi: {chat_title}")
         
         # Guruh fotosini o'zgartirilsa
-        elif event.photo_changed:
+        elif event.new_photo:
             logger.info(f"Guruh fotosi o'zgartirildi: {chat_title} ({event.chat_id})")
             print(f"📸 Guruh fotosi o'zgartirildi: {chat_title}")
         
@@ -321,13 +368,20 @@ async def chat_action_handler(event):
         logger.error(f"Chat action handler xatoligi: {e}")
         print(f"❌ Chat action xatoligi: {e}")
 
-@client.on(events.NewMessage(incoming=True))
-async def handler(event):
+async def message_handler(event):
     if not event.is_group:
         return
     
+    # Ko'p profilda bir xil xabarni ikki marta qayta yubormaslik
+    msg_key = (event.chat_id, event.id)
+    if msg_key in processed_messages:
+        return
+    if len(processed_messages) > MAX_PROCESSED_CACHE:
+        processed_messages.clear()
+    processed_messages.add(msg_key)
+    
     # O'z xabarlarini va bot xabarlarini ignore qilish
-    me = await client.get_me()
+    me = await event.client.get_me()
     bot_id = int(BOT_TOKEN.split(':')[0])  # Bot ID ni olish
     
     if event.sender_id == me.id:
@@ -339,6 +393,9 @@ async def handler(event):
     if event.chat_id not in monitored_groups:
         monitored_groups.append(event.chat_id)
         save_groups(monitored_groups)
+        pname = f"@{me.username}" if me.username else str(me.id)
+        print(f"  📥 Yangi guruh qo'shildi: {event.chat_id} (profil: {pname})")
+        logger.info(f"Yangi guruh: {event.chat_id} profil: {pname}")
     
     text_content = event.text or ""
     
@@ -382,9 +439,9 @@ async def handler(event):
     except:
         pass  # Chat ma'lumotini ololmasak ham davom etamiz
     
-    # Forward xabarlarni ignore qilish
-    if event.message.fwd_from:
-        return
+    # Forward xabarlarni ham qabul qilish (orqali uzatilgan zakazlar uchun)
+    # if event.message.fwd_from:
+    #     return
     
     # Foydalanuvchi ma'lumotlari
     user_details_parts = []
@@ -477,10 +534,12 @@ async def handler(event):
     
     # Agar haydovchi so'zlari bo'lsa, xabarni ignore qilish
     if has_driver_words:
+        logger.debug(f"O'tkazib yuborildi (haydovchi so'zi): {text_content[:50]}...")
         return
     
     # Agar yo'lovchi so'zlari yo'q bo'lsa, xabarni ignore qilish
     if not has_passenger_words:
+        logger.debug(f"O'tkazib yuborildi (yo'lovchi so'zi yo'q): {text_content[:50]}...")
         return
     
     user_type = '🙋♂️ Yolovchi'
@@ -542,9 +601,9 @@ async def handler(event):
         # Profil rasmini olish va yuborish
         if sender:
             try:
-                profile_photos = await client.get_profile_photos(sender)
+                profile_photos = await event.client.get_profile_photos(sender)
                 if profile_photos:
-                    await client.send_file(
+                    await event.client.send_file(
                         entity=ORDER_GROUP_ID,
                         file=profile_photos[0],
                         caption=caption,
@@ -554,7 +613,7 @@ async def handler(event):
                     print(f"✅ ZAKAZ #{order_number} AKKAUNT ORQALI YUBORILDI - {user_name} ({ORDER_GROUP_ID})")
                     logger.info(f"Zakaz #{order_number} akkaunt orqali yuborildi - {user_name}")
                 else:
-                    await client.send_message(
+                    await event.client.send_message(
                         entity=ORDER_GROUP_ID,
                         message=caption,
                         parse_mode='html'
@@ -565,7 +624,7 @@ async def handler(event):
                 logger.error(f"Profil rasmi yuborishda xatolik: {e}")
                 print(f"❌ XATOLIK: Profil rasmi yuborishda - {e}")
                 try:
-                    await client.send_message(
+                    await event.client.send_message(
                         entity=ORDER_GROUP_ID,
                         message=caption,
                         parse_mode='html'
@@ -576,7 +635,7 @@ async def handler(event):
                     print(f"❌ XATOLIK: Matn xabar yuborishda - {e2}")
                     logger.error(f"Matn xabar yuborishda xatolik: {e2}")
         else:
-            await client.send_message(
+            await event.client.send_message(
                 entity=ORDER_GROUP_ID,
                 message=caption,
                 parse_mode='html'
@@ -590,7 +649,7 @@ async def handler(event):
     user_bio = ""
     if sender:
         try:
-            full_user = await client(GetFullUserRequest(sender.id))
+            full_user = await event.client(GetFullUserRequest(sender.id))
             user_bio = full_user.full_user.about or ""
         except Exception as e:
             logger.error(f"Bio olishda xatolik: {e}")
@@ -659,34 +718,43 @@ async def handler(event):
                     print(f"❌ XATOLIK: Tugmalar yuborishda - {resp.status}")
                     logger.error(f"Tugmalar yuborishda xatolik: {resp.status}")
             
-            # MAXSUS: vijdontaxireklama guruhiga yuborish
+            # MAXSUS: reklama guruhlariga yuborish (telefon/havola O'CHIRILADI - admin orqali bog'lanish uchun)
+            reklama_guruhlar = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha"]
             try:
-                special_group = "@vijdontaxireklama"
-                
-                # Matnni tayyorlash (Zakaz + Bio)
+                clean_text = reklama_matndan_olib_tashlash(text_content or "")
+                clean_bio = reklama_matndan_olib_tashlash(user_bio or "")
                 special_message = f"🚕 <b>#{order_number}</b>\n\n"
-                if text_content and text_content.strip():
-                    special_message += f"<i>{text_content.strip()}</i>"
+                if clean_text:
+                    special_message += f"<i>{clean_text}</i>"
+                if clean_bio:
+                    special_message += f"\n\n<i>{clean_bio}</i>"
                 
-                if user_bio:
-                    special_message += f"\n\n<i>{user_bio}</i>"
+                # Tugmani tayyorlash - reklama guruhda to'g'ridan-to'g'ri admin lichkasiga
+                admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{bot_username}?start=haydovchi"
+                special_buttons = [[{"text": "✅ Zakazni olish", "url": admin_link}]]
                 
-                # Tugmani tayyorlash
-                special_buttons = [[{"text": "✅ Zakazni olish", "url": f"https://t.me/{bot_username}?start=zakaz_{order_number}"}]]
-                
-                special_payload = {
-                    "chat_id": special_group,
-                    "text": special_message,
-                    "parse_mode": "HTML",
-                    "reply_markup": {"inline_keyboard": special_buttons}
-                }
-                
-                async with session.post(url, json=special_payload) as resp:
-                    if resp.status == 200:
-                        print(f"✅ SPECIAL GURUHGA YUBORILDI - #{order_number}")
-                        logger.info(f"Zakaz #{order_number} special guruhga yuborildi")
+                for special_group in reklama_guruhlar:
+                    try:
+                        special_payload = {
+                            "chat_id": special_group,
+                            "text": special_message,
+                            "parse_mode": "HTML",
+                            "reply_markup": {"inline_keyboard": special_buttons}
+                        }
+                        async with session.post(url, json=special_payload) as resp:
+                            resp_text = await resp.text()
+                            if resp.status == 200:
+                                print(f"✅ REKLAMA - #{order_number} -> {special_group}")
+                                logger.info(f"Zakaz #{order_number} {special_group} ga yuborildi")
+                            else:
+                                print(f"❌ REKLAMA XATOLIK {special_group}: {resp.status} - {resp_text[:200]}")
+                                logger.warning(f"Reklama {special_group}: {resp.status} {resp_text}")
+                        await asyncio.sleep(0.3)  # Rate limit oldini olish
+                    except Exception as e:
+                        print(f"❌ REKLAMA {special_group}: {e}")
+                        logger.error(f"{special_group} ga yuborishda xatolik: {e}")
             except Exception as e:
-                logger.error(f"Special guruhga yuborishda xatolik: {e}")
+                logger.error(f"Reklama guruhlarga yuborishda xatolik: {e}")
 
             # Qo'shimcha guruhlarga ham tugmalar yuborish
             try:
@@ -720,7 +788,7 @@ async def handler(event):
                 user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
                 
                 # Xabar matni
-                message_parts = [f"🚕 <b>VIJDON TAXI</b> <b>#{order_number}</b>"]
+                message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
                 message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                 
                 if username:
@@ -747,10 +815,10 @@ async def handler(event):
                     # Profil rasmini olish va yuborish (TUGMASIZ)
                     if sender:
                         try:
-                            profile_photos = await client.get_profile_photos(sender)
+                            profile_photos = await event.client.get_profile_photos(sender)
                             if profile_photos:
                                 # Profil rasmi bilan caption yuborish
-                                await client.send_file(
+                                await event.client.send_file(
                                     entity=group_id,
                                     file=profile_photos[0],
                                     caption=caption,
@@ -761,7 +829,7 @@ async def handler(event):
                                 logger.info(f"Zakaz #{order_number} qo'shimcha guruhga akkaunt orqali yuborildi - {group_id}")
                             else:
                                 # Profil rasmi yo'q bo'lsa, matn xabar yuborish
-                                await client.send_message(
+                                await event.client.send_message(
                                     entity=group_id,
                                     message=caption,
                                     parse_mode='html'
@@ -772,7 +840,7 @@ async def handler(event):
                             print(f"❌ XATOLIK: Qo'shimcha guruhga profil rasmi yuborishda - {e}")
                             # Xatolik bo'lsa, matn xabar yuborish
                             try:
-                                await client.send_message(
+                                await event.client.send_message(
                                     entity=group_id,
                                     message=caption,
                                     parse_mode='html'
@@ -783,7 +851,7 @@ async def handler(event):
                                 logger.error(f"Qo'shimcha guruhga matn yuborishda xatolik: {e2}")
                     else:
                         # Sender yo'q bo'lsa, matn xabar yuborish
-                        await client.send_message(
+                        await event.client.send_message(
                             entity=group_id,
                             message=caption,
                             parse_mode='html'
@@ -796,8 +864,104 @@ async def handler(event):
         logger.error(f"Qo'shimcha guruhlar xatoligi: {e}")
         print(f"❌ XATOLIK: Qo'shimcha guruhlar - {e}")
 
+def register_handlers(c):
+    """Handlerlarni clientga bog'lash"""
+    c.add_event_handler(chat_action_handler, events.ChatAction)
+    c.add_event_handler(message_handler, events.NewMessage(incoming=True))
+
+def register_commands(c):
+    """Buyruqlarni clientga bog'lash"""
+    @c.on(events.NewMessage(pattern=r'/block (\d+)'))
+    async def _block(event):
+        if event.is_private:
+            user_id = int(event.pattern_match.group(1))
+            block_user(user_id)
+            await event.reply(f"🚫 Foydalanuvchi bloklandi: {user_id}")
+    @c.on(events.NewMessage(pattern=r'/unblock (\d+)'))
+    async def _unblock(event):
+        if event.is_private:
+            user_id = int(event.pattern_match.group(1))
+            unblock_user(user_id)
+            await event.reply(f"✅ Foydalanuvchi blokdan chiqarildi: {user_id}")
+    @c.on(events.NewMessage(pattern='/blocked'))
+    async def _blocked(event):
+        if event.is_private:
+            conn = sqlite3.connect('zakazlar.db')
+            cur = conn.cursor()
+            cur.execute('SELECT user_id FROM blocked_users')
+            blocked = [str(r[0]) for r in cur.fetchall()]
+            conn.close()
+            await event.reply(f"🚫 Bloklangan:\n" + "\n".join(blocked) if blocked else "📭 Bloklangan yo'q")
+    @c.on(events.NewMessage(pattern=r'/add_group (-?\d+)'))
+    async def _add_group(event):
+        if event.is_private:
+            gid = int(event.pattern_match.group(1))
+            if gid not in monitored_groups:
+                monitored_groups.append(gid)
+                save_groups(monitored_groups)
+                await event.reply(f"✅ Guruh qo'shildi: {gid}")
+            else:
+                await event.reply(f"⚠️ Allaqachon mavjud: {gid}")
+    @c.on(events.NewMessage(pattern=r'/remove_group (-?\d+)'))
+    async def _remove_group(event):
+        if event.is_private:
+            gid = int(event.pattern_match.group(1))
+            if gid in monitored_groups:
+                monitored_groups.remove(gid)
+                save_groups(monitored_groups)
+                await event.reply(f"❌ Guruh o'chirildi: {gid}")
+            else:
+                await event.reply(f"⚠️ Topilmadi: {gid}")
+    @c.on(events.NewMessage(pattern='/groups'))
+    async def _groups(event):
+        if event.is_private:
+            if monitored_groups:
+                info = []
+                for gid in monitored_groups:
+                    try:
+                        chat = await event.client.get_entity(gid)
+                        info.append(f"• {chat.title} ({gid})")
+                    except:
+                        info.append(f"• ID: {gid}")
+                await event.reply(f"📋 Kuzatilayotgan guruhlar:\n" + "\n".join(info))
+            else:
+                await event.reply("📭 Guruh yo'q")
+    @c.on(events.NewMessage(pattern=r'/make_admin (-?\d+)'))
+    async def _make_admin(event):
+        if event.is_private:
+            gid = int(event.pattern_match.group(1))
+            try:
+                await event.client.edit_admin(gid, await event.client.get_me(), is_admin=True)
+                await event.reply(f"👑 Admin qilindi: {gid}")
+            except Exception as e:
+                await event.reply(f"❌ Xatolik: {e}")
+    @c.on(events.NewMessage(pattern='/help'))
+    async def _help(event):
+        if event.is_private:
+            await event.reply("""🤖 Bot buyruqlari:
+/add_group -100xxx - Guruh qo'shish
+/remove_group -100xxx - Guruh o'chirish
+/groups - Guruhlar
+/make_admin -100xxx - Admin qilish
+/block ID - Bloklash
+/unblock ID - Blokdan chiqarish
+/blocked - Bloklanganlar
+/help - Yordam""")
+
+async def run_client(c, profile_info=""):
+    """Bir clientni ishga tushirish"""
+    await c.connect()
+    if not await c.is_user_authorized():
+        raise RuntimeError(f"Profil avtorizatsiya qilinmagan: {profile_info}")
+    me = await c.get_me()
+    profile_name = f"@{me.username}" if me.username else f"+{me.phone}" if me.phone else str(me.id)
+    print(f"  ✅ Profil ulandi: {profile_name} ({profile_info})")
+    logger.info(f"Profil ulandi: {profile_name}")
+    register_handlers(c)
+    register_commands(c)
+    await c.run_until_disconnected()
+
 async def main():
-    # Bot userneymini olish
     global bot_username
     bot_username = await get_bot_username()
     print(f"🤖 Bot: @{bot_username}")
@@ -806,185 +970,77 @@ async def main():
     init_database()
     print("✅ Ma'lumotlar bazasi tayyor")
     
+    # Default kalit so'zlar
     try:
-        await client.connect()
-        
-        if not await client.is_user_authorized():
-            phone = input("Telefon raqamingizni kiriting (+998xxxxxxxxx): ")
-            print("🤙 SMS kod yuborildi...")
-            await client.send_code_request(phone)
-            code = input("Telegram kodini kiriting: ")
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM keywords WHERE type = ?', ('passenger',))
+            if cursor.fetchone()[0] == 0:
+                for w in ["kerak", "ketish kerak", "olib keting", "yo'lovchi kerak", "borish kerak", "ketmoqchiman"]:
+                    cursor.execute('INSERT OR IGNORE INTO keywords (type, word) VALUES (?, ?)', ('passenger', w))
+            cursor.execute('SELECT COUNT(*) FROM keywords WHERE type = ?', ('driver',))
+            if cursor.fetchone()[0] == 0:
+                for w in ["ketaman", "boraman", "olib ketaman", "haydovchiman", "mashina bor", "taksi"]:
+                    cursor.execute('INSERT OR IGNORE INTO keywords (type, word) VALUES (?, ?)', ('driver', w))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Default so'zlar: {e}")
+    
+    global keywords
+    keywords = load_keywords_from_db()
+    print(f"✅ Kalit so'zlar: {len(keywords['passenger'])} yo'lovchi, {len(keywords['driver'])} haydovchi")
+    
+    profiles = load_profiles()
+    
+    try:
+        if profiles:
+            # Ko'p profil rejimi
+            print(f"\n👤 {len(profiles)} ta profil yuklandi")
+            print("="*60)
+            print("✅ USERBOT ISHGA TUSHDI! (Ko'p profil)")
+            print("="*60)
+            print(f"📊 Kuzatiladigan guruhlar: {len(monitored_groups)}")
+            print(f"📤 Buyurtma guruhi: {ORDER_GROUP_ID}")
+            print("\n💡 Yangi profil guruhda a'zo bo'lishi kerak - guruhga qo'shing!")
+            print("="*60 + "\n")
+            clients = []
+            for pid, session_name, phone in profiles:
+                c = TelegramClient(session_name, API_ID, API_HASH)
+                clients.append((c, f"{phone or session_name}"))
             
-            try:
-                await client.sign_in(phone, code)
-            except SessionPasswordNeededError:
-                password = input("2FA parolini kiriting: ")
-                await client.sign_in(password=password)
-        
-        print("🔑 Kalit so'zlarni yuklash...")
-        
-        # Bazaga default so'zlarini qo'shish
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                
-                # Yo'lovchi so'zlari
-                cursor.execute('SELECT COUNT(*) FROM keywords WHERE type = ?', ('passenger',))
-                passenger_count = cursor.fetchone()[0]
-                
-                if passenger_count == 0:
-                    default_passenger_words = ["kerak", "ketish kerak", "olib keting", "yo'lovchi kerak", "borish kerak", "ketmoqchiman"]
-                    for word in default_passenger_words:
-                        cursor.execute('INSERT OR IGNORE INTO keywords (type, word) VALUES (?, ?)', ('passenger', word))
-                    conn.commit()
-                    print("✅ Default yo'lovchi so'zlari qo'shildi")
-                
-                # Haydovchi so'zlari
-                cursor.execute('SELECT COUNT(*) FROM keywords WHERE type = ?', ('driver',))
-                driver_count = cursor.fetchone()[0]
-                
-                if driver_count == 0:
-                    default_driver_words = ["ketaman", "boraman", "olib ketaman", "haydovchiman", "mashina bor", "taksi"]
-                    for word in default_driver_words:
-                        cursor.execute('INSERT OR IGNORE INTO keywords (type, word) VALUES (?, ?)', ('driver', word))
-                    conn.commit()
-                    print("✅ Default haydovchi so'zlari qo'shildi")
-        except Exception as e:
-            logger.error(f"Default so'zlar qo'shishda xatolik: {e}")
-        
-        global keywords
-        keywords = load_keywords_from_db()
-        print(f"✅ Yuklandi: {len(keywords['passenger'])} yo'lovchi so'zi, {len(keywords['driver'])} haydovchi so'zi")
-        
-        print("📊 Statistikani hisoblash...")
-        # Bazadagi statistikani ko'rsatish
-        conn = sqlite3.connect('zakazlar.db')
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE user_type LIKE '%Yolovchi%'")
-        passengers_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE user_type LIKE '%Haydovchi%'")
-        drivers_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(DISTINCT user_id) FROM users")
-        unique_users = cursor.fetchone()[0]
-        
-        conn.close()
-        
-        print("\n" + "="*60)
-        print("✅ USERBOT MUVAFFAQIYATLI ISHGA TUSHDI!")
-        print("="*60)
-        print(f"📊 Kuzatilayotgan guruhlar: {len(monitored_groups)}")
-        print(f"🙋♂️ Yolovchi zakazlari: {passengers_count}")
-        print(f"🚗 Haydovchi zakazlari: {drivers_count}")
-        print(f"👥 Jami foydalanuvchilar: {unique_users}")
-        print(f"📤 Buyurtma guruhi: {ORDER_GROUP_ID}")
-        print("="*60)
-        print("🔍 Xabarlarni kutish...\n")
-        
-        # Buyruqlar
-        @client.on(events.NewMessage(pattern=r'/block (\d+)'))
-        async def block_user_cmd(event):
-            if event.is_private:
-                user_id = int(event.pattern_match.group(1))
-                block_user(user_id)
-                await event.reply(f"🚫 Foydalanuvchi bloklandi: {user_id}")
-        
-        @client.on(events.NewMessage(pattern=r'/unblock (\d+)'))
-        async def unblock_user_cmd(event):
-            if event.is_private:
-                user_id = int(event.pattern_match.group(1))
-                unblock_user(user_id)
-                await event.reply(f"✅ Foydalanuvchi blokdan chiqarildi: {user_id}")
-        
-        @client.on(events.NewMessage(pattern='/blocked'))
-        async def list_blocked(event):
-            if event.is_private:
-                conn = sqlite3.connect('zakazlar.db')
-                cursor = conn.cursor()
-                cursor.execute('SELECT user_id FROM blocked_users')
-                blocked = [str(row[0]) for row in cursor.fetchall()]
-                conn.close()
-                
-                if blocked:
-                    await event.reply(f"🚫 Bloklangan foydalanuvchilar:\n" + "\n".join(blocked))
-                else:
-                    await event.reply("📭 Bloklangan foydalanuvchi yo'q")
-        
-        @client.on(events.NewMessage(pattern=r'/add_group (-?\d+)'))
-        async def add_group(event):
-            if event.is_private:
-                group_id = int(event.pattern_match.group(1))
-                if group_id not in monitored_groups:
-                    monitored_groups.append(group_id)
-                    save_groups(monitored_groups)
-                    await event.reply(f"✅ Guruh qo'shildi: {group_id}")
-                else:
-                    await event.reply(f"⚠️ Guruh allaqachon mavjud: {group_id}")
-        
-        @client.on(events.NewMessage(pattern=r'/remove_group (-?\d+)'))
-        async def remove_group_by_id(event):
-            if event.is_private:
-                group_id = int(event.pattern_match.group(1))
-                if group_id in monitored_groups:
-                    monitored_groups.remove(group_id)
-                    save_groups(monitored_groups)
-                    await event.reply(f"❌ Guruh o'chirildi: {group_id}")
-                else:
-                    await event.reply(f"⚠️ Guruh topilmadi: {group_id}")
-        
-        @client.on(events.NewMessage(pattern='/groups'))
-        async def list_groups(event):
-            if event.is_private:
-                if monitored_groups:
-                    groups_info = []
-                    for group_id in monitored_groups:
-                        try:
-                            chat = await client.get_entity(group_id)
-                            groups_info.append(f"• {chat.title} ({group_id})")
-                        except:
-                            groups_info.append(f"• ID: {group_id}")
-                    await event.reply(f"📋 Kuzatilayotgan guruhlar:\n" + "\n".join(groups_info))
-                else:
-                    await event.reply("📭 Hech qanday guruh kuzatilmayapti")
-        
-        @client.on(events.NewMessage(pattern=r'/make_admin (-?\d+)'))
-        async def make_admin(event):
-            if event.is_private:
-                group_id = int(event.pattern_match.group(1))
+            async def run_one(idx):
+                c, info = clients[idx]
                 try:
-                    await client.edit_admin(group_id, await client.get_me(), is_admin=True)
-                    await event.reply(f"👑 Admin qilindi: {group_id}")
+                    await run_client(c, info)
                 except Exception as e:
-                    await event.reply(f"❌ Admin qilishda xatolik: {e}")
-        
-        @client.on(events.NewMessage(pattern='/help'))
-        async def help_cmd(event):
-            if event.is_private:
-                help_text = """🤖 Bot buyruqlari:
-
-👥 Guruh boshqaruvi:
-/add_group -1001234567890 - Guruh qo'shish
-/remove_group -1001234567890 - Guruh o'chirish
-/groups - Guruhlar ro'yxati
-/make_admin -1001234567890 - Admin qilish
-
-🚫 Bloklash:
-/block 123456789 - Foydalanuvchini bloklash
-/unblock 123456789 - Blokdan chiqarish
-/blocked - Bloklangan foydalanuvchilar
-
-📋 Boshqa:
-/help - Yordam"""
-                await event.reply(help_text)
-        
-        await client.run_until_disconnected()
-        
+                    logger.error(f"Profil {info} xatolik: {e}")
+                    print(f"❌ Profil {info}: {e}")
+            
+            # Barcha clientlarni parallel ishga tushirish
+            await asyncio.gather(*[run_one(i) for i in range(len(clients))])
+        else:
+            # Legacy: bitta userbot sessiya
+            await client.connect()
+            if not await client.is_user_authorized():
+                phone = input("Telefon raqamingiz (+998xxxxxxxxx): ")
+                print("🤙 Kod yuborildi...")
+                await client.send_code_request(phone)
+                code = input("Telegram kodini kiriting: ")
+                try:
+                    await client.sign_in(phone, code)
+                except SessionPasswordNeededError:
+                    await client.sign_in(password=input("2FA paroli: "))
+            register_handlers(client)
+            register_commands(client)
+            print("\n" + "="*60)
+            print("✅ USERBOT ISHGA TUSHDI!")
+            print("="*60)
+            print(f"📊 Guruhlar: {len(monitored_groups)} | Buyurtma: {ORDER_GROUP_ID}")
+            print("="*60 + "\n")
+            await client.run_until_disconnected()
     except Exception as e:
         logger.critical(f"KRITIK XATOLIK: {e}")
-        print(f"\n❌ KRITIK XATOLIK: {e}")
-        print("Bot to'xtatildi!\n")
+        print(f"\n❌ KRITIK XATOLIK: {e}\n")
 
 if __name__ == "__main__":
     try:

@@ -44,6 +44,9 @@ API_ID=your_api_id
 API_HASH=your_api_hash
 BOT_TOKEN=your_bot_token
 ORDER_GROUP_ID=your_order_group_id
+# Reklama guruhda "Zakazni olish" tugmasi uchun (haydovchi bo'lish - admin kontakt):
+HAYDOVCHI_ADMIN_PHONE=+998901234567
+HAYDOVCHI_ADMIN_USERNAME=admin_username
 ```
 
 5. Run the bot:
