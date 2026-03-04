@@ -101,9 +101,16 @@ class AccountConfig:
                 self.reklama_groups = config.get('reklama_groups', self.reklama_groups)
                 logger.info(f"Akkaunt #{self.profile_id} konfiguratsiya yuklandi: guruhlar={len(self.monitored_groups)}, buyurtma={self.order_group_id}")
             else:
-                # Yangi config yaratish
+                # Yangi config yaratish - groups.json dan eski guruhlarni migratsiya
+                try:
+                    old_groups = load_groups()
+                    if old_groups:
+                        self.monitored_groups = old_groups.copy()
+                        logger.info(f"Akkaunt #{self.profile_id}: groups.json dan {len(old_groups)} guruh ko'chirildi")
+                except:
+                    pass
                 self._save_config()
-                logger.info(f"Akkaunt #{self.profile_id} yangi konfiguratsiya yaratildi")
+                logger.info(f"Akkaunt #{self.profile_id} yangi konfiguratsiya yaratildi, guruhlar={len(self.monitored_groups)}")
         except Exception as e:
             logger.error(f"Akkaunt #{self.profile_id} config yuklash xatolik: {e}")
     
