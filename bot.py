@@ -1200,6 +1200,36 @@ async def search_handler(message: types.Message):
 async def handle_text_message(message: types.Message):
     user_id = message.from_user.id
     
+    # Profil sozlamalari - buyurtma guruhi o'zgartirish
+    if user_id in user_states and is_admin(user_id):
+        state = user_states[user_id]
+        if isinstance(state, str) and state.startswith('waiting_order_group_'):
+            profile_id = int(state.replace('waiting_order_group_', ''))
+            try:
+                order_group_id = int(message.text.strip())
+                config_file = f'account_config_{profile_id}.json'
+                
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        config = json.load(f)
+                else:
+                    config = {'account_id': profile_id, 'order_group_id': order_group_id, 'monitored_groups': [], 'reklama_groups': ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]}
+                
+                config['order_group_id'] = order_group_id
+                
+                with open(config_file, 'w') as f:
+                    json.dump(config, f, indent=2)
+                
+                del user_states[user_id]
+                await message.answer(f"✅ Profil #{profile_id} uchun buyurtma guruhi o'zgartirildi: {order_group_id}")
+                logger.info(f"Profil {profile_id} buyurtma guruhi: {order_group_id}")
+            except ValueError:
+                await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
+            except Exception as e:
+                logger.error(f"Profil sozlash: {e}")
+                await message.answer(f"❌ Xatolik: {e}")
+            return
+    
     # Taksi foydalanuvchilari uchun holatlar
     if user_id in user_states:
         # Yo'lovchilar soni
@@ -1669,6 +1699,7 @@ def profiles_menu():
         inline_keyboard=[
             [InlineKeyboardButton(text="➕ Profil qo'shish", callback_data="add_profile_prompt")],
             [InlineKeyboardButton(text="📋 Profillar ro'yxati", callback_data="list_profiles")],
+            [InlineKeyboardButton(text="⚙️ Profil sozlamalari", callback_data="profile_settings_prompt")],
             [InlineKeyboardButton(text="➖ Profil o'chirish", callback_data="remove_profile_prompt")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
         ]
@@ -1767,6 +1798,88 @@ async def list_profiles_handler(callback: types.CallbackQuery):
         await callback.message.edit_text(text, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="profiles_menu")]]))
     except Exception as e:
         logger.error(f"Profillar ro'yxati: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
+
+@dp.callback_query(lambda c: c.data == "profile_settings_prompt")
+async def profile_settings_prompt_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT id, phone FROM profiles WHERE is_active = 1 ORDER BY id')
+            rows = cursor.fetchall()
+        if not rows:
+            await callback.message.edit_text("📭 Aktiv profil yo'q.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="profiles_menu")]]))
+            return
+        buttons = [[InlineKeyboardButton(text=f"⚙️ Profil #{r[0]} ({r[1]})", callback_data=f"profile_config_{r[0]}")] for r in rows]
+        buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="profiles_menu")])
+        await callback.message.edit_text("Sozlash uchun profilni tanlang:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    except Exception as e:
+        logger.error(f"Profil sozlamalari: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("profile_config_"))
+async def profile_config_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        profile_id = int(callback.data.replace("profile_config_", ""))
+        user_states[callback.from_user.id] = f'profile_config_{profile_id}'
+        
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="📤 Buyurtma guruhi o'zgartirish", callback_data=f"set_order_group_{profile_id}")],
+                [InlineKeyboardButton(text="📋 Kuzatiladigan guruhlar", callback_data=f"list_monitored_{profile_id}")],
+                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="profile_settings_prompt")]
+            ]
+        )
+        await callback.message.edit_text(f"⚙️ Profil #{profile_id} sozlamalari:", reply_markup=keyboard)
+    except Exception as e:
+        logger.error(f"Profil config: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("set_order_group_"))
+async def set_order_group_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        profile_id = int(callback.data.replace("set_order_group_", ""))
+        user_states[callback.from_user.id] = f'waiting_order_group_{profile_id}'
+        await callback.message.edit_text(f"Profil #{profile_id} uchun buyurtma guruhi ID sini yuboring:\nMisol: -1001234567890")
+    except Exception as e:
+        logger.error(f"Set order group: {e}")
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("list_monitored_"))
+async def list_monitored_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        profile_id = int(callback.data.replace("list_monitored_", ""))
+        config_file = f'account_config_{profile_id}.json'
+        
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                config = json.load(f)
+            groups = config.get('monitored_groups', [])
+        else:
+            groups = []
+        
+        if groups:
+            text = f"📋 Profil #{profile_id} kuzatiladigan guruhlar:\n\n"
+            for i, g in enumerate(groups, 1):
+                text += f"{i}. {g}\n"
+        else:
+            text = f"📭 Profil #{profile_id} uchun kuzatiladigan guruh yo'q"
+        
+        await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"profile_config_{profile_id}")]]))
+    except Exception as e:
+        logger.error(f"List monitored: {e}")
         await callback.message.edit_text(f"❌ Xatolik: {e}")
 
 @dp.callback_query(lambda c: c.data == "remove_profile_prompt")
