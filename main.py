@@ -47,8 +47,6 @@ HAYDOVCHI_ADMIN_USERNAME = os.getenv('HAYDOVCHI_ADMIN_USERNAME', '').strip().lst
 
 client = TelegramClient('userbot', API_ID, API_HASH)  # Legacy - profillar bo'lmaganda
 
-# Global dublikat kesh
-processed_messages = set()
 MAX_PROCESSED_CACHE = 10000
 
 
@@ -86,6 +84,7 @@ class AccountConfig:
         self.reklama_groups = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]
         self.bot_username = "vijdonuserbot"
         self.keywords = {"driver": [], "passenger": []}
+        self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
         self._load_config()
         self._init_db()
         self._load_keywords()
@@ -101,16 +100,9 @@ class AccountConfig:
                 self.reklama_groups = config.get('reklama_groups', self.reklama_groups)
                 logger.info(f"Akkaunt #{self.profile_id} konfiguratsiya yuklandi: guruhlar={len(self.monitored_groups)}, buyurtma={self.order_group_id}")
             else:
-                # Yangi config yaratish - groups.json dan eski guruhlarni migratsiya
-                try:
-                    old_groups = load_groups()
-                    if old_groups:
-                        self.monitored_groups = old_groups.copy()
-                        logger.info(f"Akkaunt #{self.profile_id}: groups.json dan {len(old_groups)} guruh ko'chirildi")
-                except:
-                    pass
+                # Yangi config yaratish - bo'sh guruhlar bilan (har akkaunt o'zi topadi)
                 self._save_config()
-                logger.info(f"Akkaunt #{self.profile_id} yangi konfiguratsiya yaratildi, guruhlar={len(self.monitored_groups)}")
+                logger.info(f"Akkaunt #{self.profile_id} yangi konfiguratsiya yaratildi (guruhlar avtomatik topiladi)")
         except Exception as e:
             logger.error(f"Akkaunt #{self.profile_id} config yuklash xatolik: {e}")
     
@@ -397,13 +389,13 @@ def create_message_handler(acc: AccountConfig):
         if not event.is_group:
             return
         
-        # Dublikat tekshiruv
+        # Har akkaunt uchun ALOHIDA dublikat tekshiruv
         msg_key = (event.chat_id, event.id)
-        if msg_key in processed_messages:
+        if msg_key in acc.processed_messages:
             return
-        if len(processed_messages) > MAX_PROCESSED_CACHE:
-            processed_messages.clear()
-        processed_messages.add(msg_key)
+        if len(acc.processed_messages) > MAX_PROCESSED_CACHE:
+            acc.processed_messages.clear()
+        acc.processed_messages.add(msg_key)
         
         me = await event.client.get_me()
         bot_id = int(BOT_TOKEN.split(':')[0])
