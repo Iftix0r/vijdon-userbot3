@@ -397,6 +397,9 @@ def create_message_handler(acc: AccountConfig):
             acc.processed_messages.clear()
         acc.processed_messages.add(msg_key)
         
+        # Konfiguratsiyani yangilash (buyurtma guruhi o'zgargan bo'lishi mumkin)
+        acc._load_config()
+        
         me = await event.client.get_me()
         bot_id = int(BOT_TOKEN.split(':')[0])
         
