@@ -741,12 +741,10 @@ async def message_handler(event):
             reklama_guruhlar = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]
             try:
                 clean_text = reklama_matndan_olib_tashlash(text_content or "")
-                clean_bio = reklama_matndan_olib_tashlash(user_bio or "")
-                special_message = f"🚕 <b>#{order_number}</b>\n\n"
+                special_message = f"🚕 <b>Assalomu alaykum hurmatli Vijdon Taxi haydovchilari!</b>\n"
+                special_message += f"<b>🆕 YANGI BUYURTMA KELDI! #{order_number}</b>\n\n"
                 if clean_text:
-                    special_message += f"<i>{clean_text}</i>"
-                if clean_bio:
-                    special_message += f"\n\n<i>{clean_bio}</i>"
+                    special_message += f"<i>{clean_text}</i>\n\n"
                 
                 # Tugmani tayyorlash - reklama guruhda to'g'ridan-to'g'ri admin lichkasiga
                 admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{bot_username}?start=haydovchi"
