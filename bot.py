@@ -2062,60 +2062,6 @@ async def send_demo_orders():
     print(f"✅ {successful_orders}/10 demo zakaz muvaffaqiyatli yuborildi")
     logger.info(f"Demo zakazlar yuborish tugadi: {successful_orders}/10")
 
-async def admin_hisobot_task(bot_instance):
-    """Har bir daqiqada adminga zakaz statistikasi va xatoliklar yuborish"""
-    last_count = 0
-    while True:
-        try:
-            await asyncio.sleep(60)  # 1 daqiqa
-            if not ADMIN_IDS or ADMIN_IDS == [0]:
-                continue
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                # Oxirgi 1 daqiqadagi zakazlar
-                cursor.execute("""
-                    SELECT COUNT(*) FROM zakazlar 
-                    WHERE sana >= datetime('now', '-1 minute')
-                """)
-                curr_count = cursor.fetchone()[0] or 0
-                # Oldingi daqiqadagi zakazlar (1-2 daqiqa oldin)
-                cursor.execute("""
-                    SELECT COUNT(*) FROM zakazlar 
-                    WHERE sana >= datetime('now', '-2 minute') AND sana < datetime('now', '-1 minute')
-                """)
-                prev_count = cursor.fetchone()[0] or 0
-            if curr_count > prev_count:
-                trend = "📈 Ko'p tushmoqda"
-            elif curr_count < prev_count:
-                trend = "📉 Kam tushmoqda"
-            else:
-                trend = "➡️ Barqaror"
-            msg = f"📊 <b>Hisobot (har 1 daqiqa)</b>\n\n• Oxirgi daqiqa: {curr_count} ta zakaz\n• Oldingi daqiqa: {prev_count} ta zakaz\n• Trend: {trend}"
-            errs = list(recent_errors)
-            recent_errors.clear()
-            # Userbot xatoliklari (main.py)
-            try:
-                if os.path.exists("userbot_errors.txt"):
-                    with open("userbot_errors.txt", "r", encoding="utf-8") as f:
-                        ub_errs = f.read().strip().split("\n")[-5:]
-                    os.remove("userbot_errors.txt")
-                    errs.extend([f"[Userbot] {e}" for e in ub_errs if e])
-            except Exception:
-                pass
-            if errs:
-                msg += f"\n\n⚠️ <b>Xatoliklar ({len(errs)}):</b>\n" + "\n".join(errs[:5])
-            for admin_id in ADMIN_IDS:
-                if admin_id:
-                    try:
-                        await bot_instance.send_message(admin_id, msg, parse_mode='HTML')
-                    except Exception as e:
-                        logger.error(f"Admin hisobot yuborish: {e}")
-            last_count = curr_count
-        except asyncio.CancelledError:
-            break
-        except Exception as e:
-            logger.error(f"Hisobot task: {e}")
-
 async def main():
     print("🤖 Bot ishga tushmoqda...")
     
@@ -2129,14 +2075,10 @@ async def main():
     subprocess.Popen([sys.executable, 'main.py'])
     print("📱 Userbot ham ishga tushdi")
     
-    # Har daqiqa admin hisoboti
-    hisobot_task = asyncio.create_task(admin_hisobot_task(bot))
-    print("📊 Admin hisoboti yoqildi (har 1 daqiqa)")
-    
     try:
         await dp.start_polling(bot)
     finally:
-        hisobot_task.cancel()
+        pass
 
 if __name__ == "__main__":
     asyncio.run(main())
