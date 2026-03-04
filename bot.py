@@ -1414,6 +1414,55 @@ async def handle_text_message(message: types.Message):
                 await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
             del user_states[user_id]
             return
+        
+        # Profil uchun guruh boshqarish
+        elif isinstance(state, str) and state.startswith('waiting_add_monitored_'):
+            profile_id = int(state.replace('waiting_add_monitored_', ''))
+            try:
+                group_id = int(message.text.strip())
+                config_file = f'account_config_{profile_id}.json'
+                config = {}
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        config = json.load(f)
+                
+                monitored = config.get('monitored_groups', [])
+                if group_id not in monitored:
+                    monitored.append(group_id)
+                    config['monitored_groups'] = monitored
+                    with open(config_file, 'w') as f:
+                        json.dump(config, f, indent=2)
+                    await message.answer(f"✅ Profil #{profile_id}: Guruh qo'shildi: {group_id}")
+                else:
+                    await message.answer(f"⚠️ Guruh allaqachon mavjud.")
+            except:
+                await message.answer("❌ Xatolik! To'g'ri ID yuboring.")
+            del user_states[user_id]
+            return
+            
+        elif isinstance(state, str) and state.startswith('waiting_remove_monitored_'):
+            profile_id = int(state.replace('waiting_remove_monitored_', ''))
+            try:
+                group_id = int(message.text.strip())
+                config_file = f'account_config_{profile_id}.json'
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        config = json.load(f)
+                    monitored = config.get('monitored_groups', [])
+                    if group_id in monitored:
+                        monitored.remove(group_id)
+                        config['monitored_groups'] = monitored
+                        with open(config_file, 'w') as f:
+                            json.dump(config, f, indent=2)
+                        await message.answer(f"✅ Profil #{profile_id}: Guruh o'chirildi: {group_id}")
+                    else:
+                        await message.answer(f"⚠️ Guruh topilmadi.")
+                else:
+                    await message.answer("❌ Profil konfigi topilmadi.")
+            except:
+                await message.answer("❌ Xatolik!")
+            del user_states[user_id]
+            return
         elif user_states[user_id] == 'waiting_unblock_user_id':
             try:
                 user_id_to_unblock = int(message.text)
@@ -1488,30 +1537,45 @@ async def handle_text_message(message: types.Message):
 async def search_user_func(message: types.Message):
     search_term = message.text.strip()
     
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
+    # Barcha bazalardan qidirish
+    db_files = ['zakazlar.db']
+    for f in os.listdir('.'):
+        if f.startswith('zakazlar_account') and f.endswith('.db'):
+            db_files.append(f)
     
-    # Chat ID orqali qidirish
-    if search_term.isdigit():
-        cursor.execute("""
-            SELECT z.id, z.order_number, z.user_id, z.user_type, z.message, z.group_name, z.group_id, z.sana, u.user_name, u.username, u.phone 
-            FROM zakazlar z 
-            LEFT JOIN users u ON z.user_id = u.user_id 
-            WHERE z.user_id = ? 
-            ORDER BY z.sana DESC LIMIT 10
-        """, (int(search_term),))
-    else:
-        # Ism orqali qidirish
-        cursor.execute("""
-            SELECT z.id, z.order_number, z.user_id, z.user_type, z.message, z.group_name, z.group_id, z.sana, u.user_name, u.username, u.phone 
-            FROM zakazlar z 
-            LEFT JOIN users u ON z.user_id = u.user_id 
-            WHERE u.user_name LIKE ? OR z.message LIKE ?
-            ORDER BY z.sana DESC LIMIT 10
-        """, (f"%{search_term}%", f"%{search_term}%"))
+    all_results = []
     
-    results = cursor.fetchall()
-    conn.close()
+    for db_file in db_files:
+        try:
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            
+            # Chat ID orqali qidirish
+            if search_term.isdigit():
+                cursor.execute("""
+                    SELECT z.id, z.order_number, z.user_id, z.user_type, z.message, z.group_name, z.group_id, z.sana, u.user_name, u.username, u.phone 
+                    FROM zakazlar z 
+                    LEFT JOIN users u ON z.user_id = u.user_id 
+                    WHERE z.user_id = ? 
+                    ORDER BY z.sana DESC LIMIT 10
+                """, (int(search_term),))
+            else:
+                # Ism orqali qidirish
+                cursor.execute("""
+                    SELECT z.id, z.order_number, z.user_id, z.user_type, z.message, z.group_name, z.group_id, z.sana, u.user_name, u.username, u.phone 
+                    FROM zakazlar z 
+                    LEFT JOIN users u ON z.user_id = u.user_id 
+                    WHERE u.user_name LIKE ? OR z.message LIKE ?
+                    ORDER BY z.sana DESC LIMIT 10
+                """, (f"%{search_term}%", f"%{search_term}%"))
+            
+            results = cursor.fetchall()
+            all_results.extend(results)
+            conn.close()
+        except Exception as e:
+            logger.error(f"Error searching in {db_file}: {e}")
+            continue
+    results = all_results
     
     if not results:
         await message.answer(f"❌ '{search_term}' bo'yicha natija topilmadi")
@@ -1833,6 +1897,8 @@ async def profile_config_handler(callback: types.CallbackQuery):
             inline_keyboard=[
                 [InlineKeyboardButton(text="📤 Buyurtma guruhi o'zgartirish", callback_data=f"set_order_group_{profile_id}")],
                 [InlineKeyboardButton(text="📋 Kuzatiladigan guruhlar", callback_data=f"list_monitored_{profile_id}")],
+                [InlineKeyboardButton(text="➕ Guruh qo'shish", callback_data=f"add_monitored_{profile_id}")],
+                [InlineKeyboardButton(text="➖ Guruh o'chirish", callback_data=f"remove_monitored_{profile_id}")],
                 [InlineKeyboardButton(text="🔙 Orqaga", callback_data="profile_settings_prompt")]
             ]
         )
