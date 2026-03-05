@@ -814,6 +814,10 @@ async def direction_handler(callback: types.CallbackQuery):
 # Qayerga borish handleri
 @dp.callback_query(lambda c: c.data.startswith("dest_"))
 async def destination_handler(callback: types.CallbackQuery):
+    if callback.from_user.id not in taxi_users:
+        await callback.answer("⚠️ Sessiya tugagan. /start bosing!", show_alert=True)
+        return
+    
     dest = callback.data.replace("dest_", "")
     region_names = {
         "toshkent": "Toshkent",
