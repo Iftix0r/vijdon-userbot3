@@ -836,7 +836,7 @@ def create_message_handler(acc: AccountConfig):
 <<<<<<< HEAD
             message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
 =======
-            message_parts = [f"🆕 <b>YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+            message_parts = [f"👫 <b>YANGI BUYURTMA BOR!</b> <b>#{order_number}</b>"]
 >>>>>>> 10bef5f (Refactor message formatting in create_message_handler to simplify order notifications)
             message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
             if username:
@@ -1438,7 +1438,7 @@ def create_message_handler(acc: AccountConfig):
         
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+            message_parts = [f"<b>👫 YANGI BUYIRTMA BOR!</b> <b>#{order_number}</b>"]
             message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
             if username:
                 message_parts.append(f"🤙 @{username}")
