@@ -834,7 +834,7 @@ def create_message_handler(acc: AccountConfig):
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
 <<<<<<< HEAD
-            message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+            message_parts = [f"👫 <b>👫 <b>YANGI BUYURTMA BOR!</b> <b>#{order_number}</b>"]
 =======
             message_parts = [f"👫 <b>YANGI BUYURTMA BOR!</b> <b>#{order_number}</b>"]
 >>>>>>> 10bef5f (Refactor message formatting in create_message_handler to simplify order notifications)
