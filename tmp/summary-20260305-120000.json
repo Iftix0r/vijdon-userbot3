@@ -1,4 +1,0 @@
-{
-  "summary": "Updated message format in main.py at two locations (lines 930 and 1498). Changed from long greeting 'Assalomu alaykum hurmatli haydovchilar' to short format starting with '👫 YANGI BUYURTMA BOR #{order_number}'. Removed unnecessary text and buttons. Code passes syntax validation.",
-  "current_status": "Message format simplified in both reklama group handlers. Bot ready to deploy to server with new short message format."
-}

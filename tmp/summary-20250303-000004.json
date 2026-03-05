@@ -1,4 +1,0 @@
-{
-  "summary": "Yangi profil uchun debug va eslatmalar qo'shildi. Har bir profil ulanganda ismi chiqadi. Yangi guruh aniqlanganda qaysi profil topgani ko'rsatiladi. Eslatma: yangi profil guruhga a'zo bo'lishi kerak - admin guruhga yangi akkauntni qo'shishi lozim.",
-  "current_status": "Ko'p profil tizimi ishlashi kerak. Yangi profil - yangi Telegram akkaunt. Uni har bir kuzatiladigan guruhga qo'shish kerak, shundan keyin xabarlar va zakazlar qabul qilinadi."
-}

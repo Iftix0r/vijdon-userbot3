@@ -1,4 +1,0 @@
-{
-  "summary": "Admin paneldan ko'p profil (Telegram akkaunt) qo'shish va boshqarish qo'shildi. bot.py: Sozlamalar -> Profillar boshqaruvi - Profil qo'shish (telefon -> kod -> 2FA parol), Profillar ro'yxati, Profil o'chirish. Auth flow: admin telefon yuboradi, bot Telethon orqali kod so'raydi, admin kod yuboradi (vergul bilan ajratib 12,345), 2FA bo'lsa parol. main.py: profiles jadvalidan aktiv profillar yuklanadi, har biri uchun alohida Telethon client ishga tushadi, barcha guruhlarni kuzatadi va zakazlarni qabul qiladi. Dublikatlardan saqlanish uchun processed_messages cache. Legacy rejim: profillar bo'lmasa, userbot sessiya bilan ishlaydi.",
-  "current_status": "Ko'p profil tizimi tayyor. Bot orqali profil qo'shing, keyin main.py ni qayta ishga tushiring. API_ID va API_HASH bot uchun .env da bo'lishi kerak (profil qo'shish uchun)."
-}

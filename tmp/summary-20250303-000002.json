@@ -1,4 +1,0 @@
-{
-  "summary": "Reklama guruhda 'Zakazni olish' tugmasi endi bot orqali emas, to'g'ridan-to'g'ri admin lichkasiga (t.me/username) yo'naltiradi. main.py: HAYDOVCHI_ADMIN_USERNAME sozlansa tugma admin profilini ochadi - foydalanuvchi 'Xabar yozish' bosib DM ga kiradi. Bot orqali o'tmaydi.",
-  "current_status": "Zakazni olish tugmasi admin lichkasiga to'g'ridan-to'g'ri ochiladi. .env da HAYDOVCHI_ADMIN_USERNAME=admin_username qo'shish kerak."
-}

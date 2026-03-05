@@ -1,4 +1,0 @@
-{
-  "summary": "Forward qilingan xabarlar (orqali uzatilgan) endi qabul qilinadi. Avval fwd_from bo'lgan xabarlar o'tkazib yuborilardi - bu 'Islombek orqali uzatilgan' kabi zakazlarni bloklagan. Debug log qo'shildi (haydovchi/yo'lovchi so'z filterlari uchun).",
-  "current_status": "Forward zakazlar buyurtma guruhiga yuboriladi. main.py ni qayta ishga tushiring."
-}
