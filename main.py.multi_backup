@@ -596,7 +596,7 @@ async def message_handler(event):
         user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
         
         # Xabar matni
-        message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+        message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
         message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
         
         if username:
