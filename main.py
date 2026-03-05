@@ -1550,7 +1550,7 @@ def create_message_handler(acc: AccountConfig):
             for gid in extra_groups:
                 try:
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+                    msg_parts = [f"👫<b>YANGI BUYIRTMA BOR </b> <b>#{order_number}</b>"]
                     msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                     if username:
                         msg_parts.append(f"🤙 @{username}")
