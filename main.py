@@ -927,10 +927,9 @@ def create_message_handler(acc: AccountConfig):
                 # Reklama guruhlarga yuborish
                 try:
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
-                    special_message = f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
+                    special_message = f"� <b>>YANGI BUYURTMA BOR #{order_number}</b>"
                     if clean_text:
-                        special_message += f"<i>{clean_text}</i>\n\n"
-                    special_message += f"<b>Buyurtmalar guruhga qo'shilish uchun 👇</b>"
+                        special_message += f"\n\n<i>{clean_text}</i>"
                     
                     admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
                     special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
@@ -1495,10 +1494,9 @@ def create_message_handler(acc: AccountConfig):
                 # Reklama guruhlarga yuborish
                 try:
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
-                    special_message = f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
+                    special_message = f"� <b>>YANGI BUYURTMA BOR #{order_number}</b>"
                     if clean_text:
-                        special_message += f"<i>{clean_text}</i>\n\n"
-                    special_message += f"<b>Buyurtmalar guruhga qo'shilish uchun 👇</b>"
+                        special_message += f"\n\n<i>{clean_text}</i>"
                     
                     admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
                     special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
