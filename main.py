@@ -833,7 +833,7 @@ def create_message_handler(acc: AccountConfig):
         
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"👫 <b>YANGI BUYURTMA BOR #{order_number}</b>"]
+            message_parts = [f"🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI! #{order_number}</b>"]
             message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
             if username:
                 message_parts.append(f"🤙 @{username}")
@@ -990,7 +990,7 @@ def create_message_handler(acc: AccountConfig):
             for gid in extra_groups:
                 try:
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"👫 <b>YANGI BUYURTMA BOR #{order_number}</b>"]
+                    msg_parts = [f"🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI! #{order_number}</b>"]
                     msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                     if username:
                         msg_parts.append(f"🤙 @{username}")
