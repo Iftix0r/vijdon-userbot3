@@ -867,16 +867,9 @@ def create_message_handler(acc: AccountConfig):
                 logger.info(f"Bot Zakaz #{order_number} yuborildi")
             except Exception as e:
                 logger.error(f"Bot yuborish xatolik: {e}")
-                # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali yuborish
+                # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali matn yuborish
                 try:
-                    if sender:
-                        profile_photos = await event.client.get_profile_photos(sender)
-                        if profile_photos:
-                            await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False)
-                        else:
-                            await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
-                    else:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+                    await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
                     print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
                     logger.info(f"Akkaunt #{acc.profile_id} Zakaz #{order_number} yuborildi")
                 except Exception as e2:
@@ -1020,16 +1013,9 @@ def create_message_handler(acc: AccountConfig):
                         print(f"✅ BOT ZAKAZ #{order_number} -> qo'shimcha {gid}")
                     except Exception as e:
                         logger.error(f"Bot qo'shimcha yuborish: {e}")
-                        # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali yuborish
+                        # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali matn yuborish
                         try:
-                            if sender:
-                                photos = await event.client.get_profile_photos(sender)
-                                if photos:
-                                    await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
-                                else:
-                                    await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                            else:
-                                await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                            await event.client.send_message(entity=gid, message=cap, parse_mode='html')
                             print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
                         except Exception as e2:
                             logger.error(f"Akkaunt qo'shimcha yuborish: {e2}")
@@ -1462,7 +1448,7 @@ def create_message_handler(acc: AccountConfig):
         
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"<b>👫 YANGI BUYIRTMA BOR!</b> <b>#{order_number}</b>"]
+            message_parts = [f"<b>!</b> <b>#{order_number}</b>"]
             message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
             if username:
                 message_parts.append(f"🤙 @{username}")
@@ -1573,7 +1559,7 @@ def create_message_handler(acc: AccountConfig):
             for gid in extra_groups:
                 try:
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"👫<b>YANGI BUYIRTMA BOR </b> <b>#{order_number}</b>"]
+                    msg_parts = [f"👫<b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> <b>#{order_number}</b>"]
                     msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                     if username:
                         msg_parts.append(f"🤙 @{username}")
