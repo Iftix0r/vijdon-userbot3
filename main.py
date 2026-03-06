@@ -851,23 +851,27 @@ def create_message_handler(acc: AccountConfig):
             
             caption = "\n\n".join(message_parts)
             
-            if sender:
+            # Bot orqali yuborish
+            try:
+                await bot.send_message(chat_id=ORDER_GID, text=caption, parse_mode='HTML')
+                print(f"✅ BOT ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
+                logger.info(f"Bot Zakaz #{order_number} yuborildi")
+            except Exception as e:
+                logger.error(f"Bot yuborish xatolik: {e}")
+                # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali yuborish
                 try:
-                    profile_photos = await event.client.get_profile_photos(sender)
-                    if profile_photos:
-                        await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False)
+                    if sender:
+                        profile_photos = await event.client.get_profile_photos(sender)
+                        if profile_photos:
+                            await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False)
+                        else:
+                            await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
                     else:
                         await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
                     print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
                     logger.info(f"Akkaunt #{acc.profile_id} Zakaz #{order_number} yuborildi")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} profil rasmi: {e}")
-                    try:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
-                    except Exception as e2:
-                        logger.error(f"Akkaunt #{acc.profile_id} matn yuborish: {e2}")
-            else:
-                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+                except Exception as e2:
+                    logger.error(f"Akkaunt #{acc.profile_id} yuborish xatolik: {e2}")
         except Exception as e:
             logger.error(f"Akkaunt #{acc.profile_id} buyurtma yuborish: {e}")
         
@@ -967,7 +971,7 @@ def create_message_handler(acc: AccountConfig):
         except Exception as e:
             logger.error(f"Akkaunt #{acc.profile_id} bot tugmalar: {e}")
         
-        # Qo'shimcha buyurtma guruhlarga akkaunt orqali
+        # Qo'shimcha buyurtma guruhlarga bot orqali
         try:
             with acc.get_db() as conn:
                 cursor = conn.cursor()
@@ -992,18 +996,25 @@ def create_message_handler(acc: AccountConfig):
                         msg_parts.append(f"📞 +{sender.phone}")
                     cap = "\n\n".join(msg_parts)
                     
-                    if sender:
+                    # Bot orqali yuborish
+                    try:
+                        await bot.send_message(chat_id=gid, text=cap, parse_mode='HTML')
+                        print(f"✅ BOT ZAKAZ #{order_number} -> qo'shimcha {gid}")
+                    except Exception as e:
+                        logger.error(f"Bot qo'shimcha yuborish: {e}")
+                        # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali yuborish
                         try:
-                            photos = await event.client.get_profile_photos(sender)
-                            if photos:
-                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                            if sender:
+                                photos = await event.client.get_profile_photos(sender)
+                                if photos:
+                                    await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                                else:
+                                    await event.client.send_message(entity=gid, message=cap, parse_mode='html')
                             else:
                                 await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                        except:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                    else:
-                        await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
+                            print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
+                        except Exception as e2:
+                            logger.error(f"Akkaunt qo'shimcha yuborish: {e2}")
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
         except Exception as e:
