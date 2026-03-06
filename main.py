@@ -851,9 +851,19 @@ def create_message_handler(acc: AccountConfig):
             
             caption = "\n\n".join(message_parts)
             
+            # Tugmalarni yaratish
+            buttons = []
+            if phones:
+                phone = phones[0].replace(' ', '').replace('-', '')
+                if not phone.startswith('+'):
+                    phone = '+998' + phone if phone.startswith('998') else '+' + phone
+                buttons.append([{"text": f"📞 {phone}", "url": f"https://onmap.uz/tel/{phone}"}])
+                buttons.append([{"text": "📋 Nushalash", "callback_data": f"copy_phone_{phone}"}])
+            
             # Bot orqali yuborish
             try:
-                await bot.send_message(chat_id=ORDER_GID, text=caption, parse_mode='HTML')
+                reply_markup = {"inline_keyboard": buttons} if buttons else None
+                await bot.send_message(chat_id=ORDER_GID, text=caption, parse_mode='HTML', reply_markup=reply_markup)
                 print(f"✅ BOT ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
                 logger.info(f"Bot Zakaz #{order_number} yuborildi")
             except Exception as e:
@@ -996,9 +1006,19 @@ def create_message_handler(acc: AccountConfig):
                         msg_parts.append(f"📞 +{sender.phone}")
                     cap = "\n\n".join(msg_parts)
                     
+                    # Tugmalarni yaratish
+                    extra_buttons = []
+                    if phones:
+                        pn = phones[0].replace(' ', '').replace('-', '')
+                        if not pn.startswith('+'):
+                            pn = '+998' + pn if pn.startswith('998') else '+' + pn
+                        extra_buttons.append([{"text": f"📞 {pn}", "url": f"https://onmap.uz/tel/{pn}"}])
+                        extra_buttons.append([{"text": "📋 Nushalash", "callback_data": f"copy_phone_{pn}"}])
+                    
                     # Bot orqali yuborish
                     try:
-                        await bot.send_message(chat_id=gid, text=cap, parse_mode='HTML')
+                        reply_markup = {"inline_keyboard": extra_buttons} if extra_buttons else None
+                        await bot.send_message(chat_id=gid, text=cap, parse_mode='HTML', reply_markup=reply_markup)
                         print(f"✅ BOT ZAKAZ #{order_number} -> qo'shimcha {gid}")
                     except Exception as e:
                         logger.error(f"Bot qo'shimcha yuborish: {e}")
