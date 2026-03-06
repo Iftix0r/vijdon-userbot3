@@ -254,7 +254,9 @@ def main_menu():
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="🔍 Qidiruv")],
             [KeyboardButton(text="📝 So'zlar qo'shish"), KeyboardButton(text="⚙️ Sozlamalar")],
             [KeyboardButton(text="📋 Guruh statistikasi"), KeyboardButton(text="🕜 Oxirgi 10 ta zakaz")],
-            [KeyboardButton(text="⚠️ To'liq bo'lmagan zakazlar"), KeyboardButton(text="✅ Zakazni to'ldirish")]
+            [KeyboardButton(text="⚠️ To'liq bo'lmagan zakazlar"), KeyboardButton(text="✅ Zakazni to'ldirish")],
+            [KeyboardButton(text="🚫 Bloklangan foydalanuvchilar"), KeyboardButton(text="📱 Profil qo'shish")],
+            [KeyboardButton(text="🔐 Admin qo'shish"), KeyboardButton(text="📈 Xatoliklar")]
         ],
         resize_keyboard=True
     )
@@ -2267,3 +2269,68 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+@dp.message(lambda message: message.text == "🚫 Bloklangan foydalanuvchilar")
+async def blocked_users_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    conn = sqlite3.connect('zakazlar.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, blocked_date FROM blocked_users ORDER BY blocked_date DESC LIMIT 20")
+    blocked = cursor.fetchall()
+    conn.close()
+    
+    if not blocked:
+        await message.answer("✅ Bloklangan foydalanuvchilar yo'q")
+        return
+    
+    text = f"🚫 Bloklangan foydalanuvchilar ({len(blocked)}):\n\n"
+    for user_id, blocked_date in blocked:
+        text += f"👤 ID: {user_id}\n📅 {blocked_date[:16]}\n\n"
+    
+    await message.answer(text)
+
+@dp.message(lambda message: message.text == "📱 Profil qo'shish")
+async def add_profile_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    user_states[message.from_user.id] = 'waiting_profile_phone'
+    await message.answer(
+        "📱 Profil qo'shish:\n\n"
+        "Telefon raqamni yuboring:\n"
+        "Masalan: +998901234567 yoki 901234567"
+    )
+
+@dp.message(lambda message: message.text == "🔐 Admin qo'shish")
+async def add_admin_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    user_states[message.from_user.id] = 'waiting_add_admin_id'
+    await message.answer(
+        "🔐 Admin qo'shish:\n\n"
+        "Foydalanuvchi ID sini yuboring:\n"
+        "Masalan: 123456789"
+    )
+
+@dp.message(lambda message: message.text == "📈 Xatoliklar")
+async def errors_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    if not recent_errors:
+        await message.answer("✅ Xatoliklar yo'q")
+        return
+    
+    text = f"📈 Oxirgi {len(recent_errors)} ta xatolik:\n\n"
+    for i, error in enumerate(recent_errors, 1):
+        text += f"{i}. {error}\n\n"
+    
+    await message.answer(text)
