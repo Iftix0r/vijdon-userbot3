@@ -851,18 +851,13 @@ def create_message_handler(acc: AccountConfig):
             
             caption = "\n\n".join(message_parts)
             
-            # Tugmalarni yaratish
+            # Tugmalarni yaratish - faqat qo'ng'iroq tugmasi
             buttons = []
             if phones:
                 phone = phones[0].replace(' ', '').replace('-', '')
                 if not phone.startswith('+'):
                     phone = '+998' + phone if phone.startswith('998') else '+' + phone
                 buttons.append([{"text": f"📞 {phone}", "url": f"https://onmap.uz/tel/{phone}"}])
-                buttons.append([{"text": "📋 Nushalash", "callback_data": f"copy_phone_{phone}"}])
-            
-            # Bloklash tugmasi (faqat adminlar uchun)
-            if user_id:
-                buttons.append([{"text": "🚫 Bloklash", "callback_data": f"block_user_{user_id}_{order_number}"}])
             
             # Bot orqali yuborish
             try:
@@ -1010,18 +1005,13 @@ def create_message_handler(acc: AccountConfig):
                         msg_parts.append(f"📞 +{sender.phone}")
                     cap = "\n\n".join(msg_parts)
                     
-                    # Tugmalarni yaratish
+                    # Tugmalarni yaratish - faqat qo'ng'iroq tugmasi
                     extra_buttons = []
                     if phones:
                         pn = phones[0].replace(' ', '').replace('-', '')
                         if not pn.startswith('+'):
                             pn = '+998' + pn if pn.startswith('998') else '+' + pn
                         extra_buttons.append([{"text": f"📞 {pn}", "url": f"https://onmap.uz/tel/{pn}"}])
-                        extra_buttons.append([{"text": "📋 Nushalash", "callback_data": f"copy_phone_{pn}"}])
-                    
-                    # Bloklash tugmasi (faqat adminlar uchun)
-                    if user_id:
-                        extra_buttons.append([{"text": "🚫 Bloklash", "callback_data": f"block_user_{user_id}_{order_number}"}])
                     
                     # Bot orqali yuborish
                     try:
