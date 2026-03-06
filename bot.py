@@ -742,10 +742,12 @@ async def back_main(callback: types.CallbackQuery):
         "Quyidagi tugmalardan birini tanlang:"
     )
 
-@dp.callback_query(lambda c: c.data.startswith("block_"))
+@dp.callback_query(lambda c: c.data.startswith("block_user_") or c.data.startswith("block_"))
 async def block_user_callback(callback: types.CallbackQuery):
     try:
-        user_id = int(callback.data.replace("block_", ""))
+        # block_user_123_456 yoki block_123 formatini qabul qiladi
+        data = callback.data.replace("block_user_", "").replace("block_", "")
+        user_id = int(data.split("_")[0])
         
         with get_db_connection() as conn:
             cursor = conn.cursor()

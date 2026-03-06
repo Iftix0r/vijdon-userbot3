@@ -860,6 +860,10 @@ def create_message_handler(acc: AccountConfig):
                 buttons.append([{"text": f"📞 {phone}", "url": f"https://onmap.uz/tel/{phone}"}])
                 buttons.append([{"text": "📋 Nushalash", "callback_data": f"copy_phone_{phone}"}])
             
+            # Bloklash tugmasi (faqat adminlar uchun)
+            if user_id:
+                buttons.append([{"text": "🚫 Bloklash", "callback_data": f"block_user_{user_id}_{order_number}"}])
+            
             # Bot orqali yuborish
             try:
                 reply_markup = {"inline_keyboard": buttons} if buttons else None
@@ -1014,6 +1018,10 @@ def create_message_handler(acc: AccountConfig):
                             pn = '+998' + pn if pn.startswith('998') else '+' + pn
                         extra_buttons.append([{"text": f"📞 {pn}", "url": f"https://onmap.uz/tel/{pn}"}])
                         extra_buttons.append([{"text": "📋 Nushalash", "callback_data": f"copy_phone_{pn}"}])
+                    
+                    # Bloklash tugmasi (faqat adminlar uchun)
+                    if user_id:
+                        extra_buttons.append([{"text": "🚫 Bloklash", "callback_data": f"block_user_{user_id}_{order_number}"}])
                     
                     # Bot orqali yuborish
                     try:
