@@ -756,6 +756,23 @@ def create_message_handler(acc: AccountConfig):
             logger.info(f"Akkaunt #{acc.profile_id} yangi guruh: {event.chat_id}")
         
         is_voice = bool(event.message.voice)
+        
+        # Ovozli xabarlar sozlamasini tekshirish
+        if is_voice:
+            voice_enabled = True
+            try:
+                with get_main_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT value FROM settings WHERE key='voice_orders_enabled'")
+                    row = cursor.fetchone()
+                    if row:
+                        voice_enabled = (row[0] == '1')
+            except:
+                pass
+            
+            if not voice_enabled:
+                return
+
         text_content = event.message.message or ""
         
         if is_voice and not text_content:
@@ -1421,6 +1438,23 @@ def create_message_handler(acc: AccountConfig):
             logger.info(f"Akkaunt #{acc.profile_id} yangi guruh: {event.chat_id}")
         
         is_voice = bool(event.message.voice)
+        
+        # Ovozli xabarlar sozlamasini tekshirish
+        if is_voice:
+            voice_enabled = True
+            try:
+                with get_main_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT value FROM settings WHERE key='voice_orders_enabled'")
+                    row = cursor.fetchone()
+                    if row:
+                        voice_enabled = (row[0] == '1')
+            except:
+                pass
+            
+            if not voice_enabled:
+                return
+
         text_content = event.message.message or ""
         
         if is_voice and not text_content:

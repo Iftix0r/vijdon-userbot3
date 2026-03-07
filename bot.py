@@ -170,6 +170,8 @@ def init_keywords_db():
     # Default sozlamalarni qo'shish
     cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', 
                   ('order_header', '🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI!</b>'))
+    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', 
+                  ('voice_orders_enabled', '1'))
     
     # Default adminlarni qo'shish
     for admin_id in ADMIN_IDS:
@@ -1880,14 +1882,76 @@ def users_menu():
 # General Settings menu
 def general_settings_menu():
     current_header = get_setting('order_header', '')
+    voice_enabled = get_setting('voice_orders_enabled', '1') == '1'
+    
+    voice_text = "🎤 Ovozli zakazlar: ✅ YOQILGAN" if voice_enabled else "🎤 Ovozli zakazlar: ❌ O'CHIRILGAN"
+    
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📝 Buyurtma sarlavhasini o'zgartirish", callback_data="edit_order_header")],
             [InlineKeyboardButton(text="🗑 Sarlavhani o'chirish", callback_data="clear_order_header")],
+            [InlineKeyboardButton(text="🎤 Ovozli zakazlarni ko'rish", callback_data="view_voice_orders")],
+            [InlineKeyboardButton(text="🗑 Ovozli zakazlarni tozalash", callback_data="clear_voice_orders")],
+            [InlineKeyboardButton(text=voice_text, callback_data="toggle_voice_orders")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
         ]
     )
     return keyboard, current_header
+
+@dp.callback_query(lambda c: c.data == "view_voice_orders")
+async def view_voice_orders_handler(callback: types.CallbackQuery):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT z.id, z.order_number, z.message, z.sana, u.user_name, u.phone 
+                FROM zakazlar z 
+                LEFT JOIN users u ON z.user_id = u.user_id 
+                WHERE z.message LIKE '%🎤%' OR z.message LIKE '%Ovozli%'
+                ORDER BY z.sana DESC 
+                LIMIT 10
+            """)
+            voice_orders = cursor.fetchall()
+            
+        if not voice_orders:
+            await callback.answer("📭 Ovozli zakazlar topilmadi")
+            return
+            
+        text = "🎤 Oxirgi 10 ta ovozli zakaz:\n\n"
+        for i, order in enumerate(voice_orders, 1):
+            text += f"{i}. <b>Zakaz #{order[1]}</b>\n"
+            text += f"   👤 {order[4] or 'Nomaum'}\n"
+            text += f"   📞 {order[5] or 'Nomaum'}\n"
+            text += f"   📅 {order[3][:16]}\n\n"
+            
+        await callback.message.answer(text, parse_mode='HTML')
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error viewing voice orders: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+@dp.callback_query(lambda c: c.data == "clear_voice_orders")
+async def clear_voice_orders_handler(callback: types.CallbackQuery):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM zakazlar WHERE message LIKE '%🎤%' OR message LIKE '%Ovozli%'")
+            deleted_count = cursor.rowcount
+            conn.commit()
+            
+        await callback.answer(f"✅ {deleted_count} ta ovozli zakaz o'chirildi!")
+        
+        keyboard, header = general_settings_menu()
+        await callback.message.edit_text(
+            f"⚙️ <b>Umumiy sozlamalar</b>\n\n"
+            f"📝 <b>Hozirgi buyurtma sarlavhasi:</b>\n{header}\n\n"
+            f"Sozlamalarni o'zgartirish uchun quyidagi tugmalarni bosing:",
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        logger.error(f"Error clearing voice orders: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
 
 @dp.callback_query(lambda c: c.data == "general_settings_menu")
 async def general_settings_menu_handler(callback: types.CallbackQuery):
@@ -1895,7 +1959,25 @@ async def general_settings_menu_handler(callback: types.CallbackQuery):
     await callback.message.edit_text(
         f"⚙️ <b>Umumiy sozlamalar</b>\n\n"
         f"📝 <b>Hozirgi buyurtma sarlavhasi:</b>\n{header}\n\n"
-        f"Sarlavhani o'zgartirish uchun quyidagi tugmani bosing:",
+        f"Sozlamalarni o'zgartirish uchun quyidagi tugmalarni bosing:",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "toggle_voice_orders")
+async def toggle_voice_orders_handler(callback: types.CallbackQuery):
+    current = get_setting('voice_orders_enabled', '1')
+    new_val = '0' if current == '1' else '1'
+    set_setting('voice_orders_enabled', new_val)
+    
+    status_text = "yoqildi" if new_val == '1' else "o'chirildi"
+    await callback.answer(f"🎤 Ovozli zakazlar {status_text}!")
+    
+    keyboard, header = general_settings_menu()
+    await callback.message.edit_text(
+        f"⚙️ <b>Umumiy sozlamalar</b>\n\n"
+        f"📝 <b>Hozirgi buyurtma sarlavhasi:</b>\n{header}\n\n"
+        f"Sozlamalarni o'zgartirish uchun quyidagi tugmalarni bosing:",
         reply_markup=keyboard,
         parse_mode='HTML'
     )
