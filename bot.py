@@ -1345,7 +1345,7 @@ async def handle_text_message(message: types.Message):
                     with open(config_file, 'r') as f:
                         config = json.load(f)
                 else:
-                    config = {'account_id': profile_id, 'order_group_id': order_group_id, 'monitored_groups': [], 'reklama_groups': ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]}
+                    config = {'account_id': profile_id, 'order_group_id': order_group_id, 'monitored_groups': [], 'reklama_groups': ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup", "@namangan_toshkent_namangan_vijdo"]}
                 
                 config['order_group_id'] = order_group_id
                 
