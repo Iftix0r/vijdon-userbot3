@@ -1407,9 +1407,13 @@ async def handle_text_message(message: types.Message):
     # Profil qo'shish holatlari
     if user_id in user_states and is_admin(user_id):
         if user_states[user_id] == 'waiting_profile_phone':
-            phone = message.text.strip().replace(' ', '').replace('-', '')
-            if not phone.startswith('+'):
-                phone = '+998' + phone if (phone.startswith('998') and len(phone) >= 9) else '+' + phone
+            phone = message.text.strip().replace(' ', '').replace('-', '').replace('+', '')
+            if phone.startswith('998') and len(phone) == 12:
+                phone = '+' + phone
+            elif len(phone) == 9:
+                phone = '+998' + phone
+            else:
+                phone = '+' + phone
             if len(phone) < 12:
                 await message.answer("❌ Noto'g'ri format. Misol: +998901234567")
                 return

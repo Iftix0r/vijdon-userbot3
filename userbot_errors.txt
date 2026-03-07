@@ -310,3 +310,7 @@ KRITIK XATOLIK: The authorization key (session file) was used under two differen
 KRITIK XATOLIK: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
 KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
 KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+KRITIK XATOLIK: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
