@@ -951,6 +951,17 @@ def create_message_handler(acc: AccountConfig):
         user_type = '🙋♂️ Yolovchi'
         is_blocked = acc.is_user_blocked(user_id)
         
+        # Spamdan himoya: 1 minutda 3 tadan ko'p zakaz yuborolmaslik
+        if user_id > 0 and not is_blocked:
+            now = time.time()
+            history = user_order_history.get(user_id, [])
+            # Faqat oxirgi 60 soniyadagi vaqtlarni qoldiramiz
+            history = [t for t in history if now - t < 60]
+            if len(history) >= 3:
+                logger.warning(f"Spam aniqlandi: User {user_id} 1 minutda 3 tadan ko'p zakaz bermoqchi.")
+                return
+            user_order_history[user_id] = history + [now]
+        
         # Bio faqat zakaz aniqlangandan keyin tortiladi, shunda Flood Wait kamayadi
         if not user_bio and sender and hasattr(sender, 'id'):
             user_bio = acc.get_user_bio(sender.id)
