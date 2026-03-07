@@ -815,6 +815,8 @@ def create_message_handler(acc: AccountConfig):
         
         if sender:
             try:
+                if getattr(sender, 'bot', False):
+                    return
                 if sender.id == me.id or sender.id == bot_id:
                     return
                 user_id = sender.id
@@ -829,6 +831,14 @@ def create_message_handler(acc: AccountConfig):
 
             except:
                 user_info = "👤 Noma'lum foydalanuvchi"
+        if user_id > 0:
+            try:
+                with get_main_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1 FROM blocked_users WHERE user_id = ?", (user_id,))
+                    if cursor.fetchone(): return
+                if acc.is_user_blocked(user_id): return
+            except: pass
         
         # Xabar va guruh havolalari
         message_link = "#"
@@ -1497,6 +1507,7 @@ def create_message_handler(acc: AccountConfig):
         
         if sender:
             try:
+                if getattr(sender, "bot", False): return
                 if sender.id == me.id or sender.id == bot_id:
                     return
                 user_id = sender.id
@@ -1513,6 +1524,14 @@ def create_message_handler(acc: AccountConfig):
                 user_info = "👤 Noma'lum foydalanuvchi"
         
         # Xabar va guruh havolalari
+        if user_id > 0:
+            try:
+                with get_main_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT 1 FROM blocked_users WHERE user_id = ?", (user_id,))
+                    if cursor.fetchone(): return
+                if acc.is_user_blocked(user_id): return
+            except: pass
         message_link = "#"
         group_info = "🫂 Guruh"
         if chat:
