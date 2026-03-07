@@ -143,6 +143,14 @@ def init_keywords_db():
         )
     ''')
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reklama_groups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            group_identifier TEXT UNIQUE,
+            group_name TEXT,
+            added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS incomplete_orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_number INTEGER,
@@ -167,6 +175,18 @@ def init_keywords_db():
         )
     ''')
     
+    # Default reklama guruhlarini qo'shish
+    cursor.execute('SELECT COUNT(*) FROM reklama_groups')
+    if cursor.fetchone()[0] == 0:
+        default_reklama = [
+            ("@vijdontaxireklama", "Vijdon Taxi Reklama"),
+            ("@iymontaxi", "Iymon Taxi"),
+            ("@sobirtaxi_vodiy_voha", "Sobir Taxi"),
+            ("@iymontaxigroup", "Iymon Taxi Group")
+        ]
+        for identifier, name in default_reklama:
+            cursor.execute('INSERT OR IGNORE INTO reklama_groups (group_identifier, group_name) VALUES (?, ?)', (identifier, name))
+    
     # Default sozlamalarni qo'shish
     cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', 
                   ('order_header', '🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI!</b>'))
@@ -179,6 +199,38 @@ def init_keywords_db():
     
     conn.commit()
     conn.close()
+
+def load_reklama_groups():
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT group_identifier FROM reklama_groups')
+            return [row[0] for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"Error loading reklama groups: {e}")
+        return []
+
+def add_reklama_group_db(identifier, name=None):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT OR IGNORE INTO reklama_groups (group_identifier, group_name) VALUES (?, ?)', (identifier, name))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error adding reklama group: {e}")
+        return False
+
+def remove_reklama_group_db(identifier):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM reklama_groups WHERE group_identifier = ?', (identifier,))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error removing reklama group: {e}")
+        return False
 
 def save_keyword(word_type, word):
     try:
@@ -1532,6 +1584,15 @@ async def handle_text_message(message: types.Message):
                 await message.answer("❌ Xatolik! To'g'ri ID yuboring.")
             del user_states[user_id]
             return
+
+        elif user_states[user_id] == 'waiting_add_reklama_group':
+            identifier = message.text.strip()
+            if add_reklama_group_db(identifier, identifier):
+                await message.answer(f"✅ Reklama guruhi qo'shildi: {identifier}", reply_markup=reklama_groups_menu())
+            else:
+                await message.answer("❌ Xatolik yuz berdi (balki bu guruh allaqachon bordir).", reply_markup=reklama_groups_menu())
+            del user_states[user_id]
+            return
             
         elif isinstance(state, str) and state.startswith('waiting_remove_monitored_'):
             profile_id = int(state.replace('waiting_remove_monitored_', ''))
@@ -1844,9 +1905,22 @@ def groups_menu():
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📤 Buyurtma guruhlari", callback_data="list_order_groups")],
+            [InlineKeyboardButton(text="📢 Reklama guruhlari", callback_data="reklama_groups_menu")],
             [InlineKeyboardButton(text="➕ Buyurtma guruh qo'shish", callback_data="add_order_group_prompt")],
             [InlineKeyboardButton(text="➖ Buyurtma guruh o'chirish", callback_data="remove_order_group_prompt")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
+        ]
+    )
+    return keyboard
+
+# Reklama guruhlari menuoma
+def reklama_groups_menu():
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Reklama guruhlari ro'yxati", callback_data="list_reklama_groups")],
+            [InlineKeyboardButton(text="➕ Reklama guruh qo'shish", callback_data="add_reklama_group_prompt")],
+            [InlineKeyboardButton(text="➖ Reklama guruh o'chirish", callback_data="remove_reklama_group_prompt")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="groups_menu")]
         ]
     )
     return keyboard
@@ -2265,6 +2339,66 @@ def unblock_user(user_id):
         logger.error(f"Error unblocking user {user_id}: {e}")
         raise
 
+@dp.callback_query(lambda c: c.data == "reklama_groups_menu")
+async def reklama_groups_menu_callback_handler(callback: types.CallbackQuery):
+    await callback.message.edit_text(
+        "📢 <b>Reklama guruhlari boshqaruvi:</b>\n\n"
+        "Userbot ushbu guruhlarda reklamalarni qidiradi va tarqatadi.",
+        reply_markup=reklama_groups_menu(),
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "list_reklama_groups")
+async def list_reklama_groups_handler(callback: types.CallbackQuery):
+    reklama_groups = load_reklama_groups()
+    if reklama_groups:
+        groups_text = "📢 <b>Reklama guruhlari:</b>\n\n" + "\n".join([f"• {g}" for g in reklama_groups])
+    else:
+        groups_text = "📭 Reklama guruhlari bo'sh."
+    
+    await callback.message.edit_text(
+        groups_text, 
+        parse_mode='HTML',
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="reklama_groups_menu")]])
+    )
+
+@dp.callback_query(lambda c: c.data == "add_reklama_group_prompt")
+async def add_reklama_group_prompt_handler(callback: types.CallbackQuery):
+    user_states[callback.from_user.id] = 'waiting_add_reklama_group'
+    await callback.message.edit_text(
+        "➕ <b>Yangi reklama guruhi qo'shish</b>\n\n"
+        "Guruh ID sini yoki @username sini yuboring:",
+        parse_mode='HTML',
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="reklama_groups_menu")]])
+    )
+
+@dp.callback_query(lambda c: c.data == "remove_reklama_group_prompt")
+async def remove_reklama_group_prompt_handler(callback: types.CallbackQuery):
+    reklama_groups = load_reklama_groups()
+    if not reklama_groups:
+        await callback.answer("📭 O'chirish uchun guruh yo'q.", show_alert=True)
+        return
+        
+    buttons = [[InlineKeyboardButton(text=f"❌ {g}", callback_data=f"del_reklama_{g}")] for g in reklama_groups]
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="reklama_groups_menu")])
+    
+    await callback.message.edit_text(
+        "➖ <b>O'chirish uchun guruhni tanlang:</b>",
+        parse_mode='HTML',
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+    )
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("del_reklama_"))
+async def del_reklama_callback_handler(callback: types.CallbackQuery):
+    identifier = callback.data.replace("del_reklama_", "")
+    if remove_reklama_group_db(identifier):
+        await callback.answer(f"✅ {identifier} o'chirildi", show_alert=True)
+    else:
+        await callback.answer("❌ Xatolik yuz berdi", show_alert=True)
+    
+    # Menuni yangilash
+    await remove_reklama_group_prompt_handler(callback)
+
 @dp.callback_query(lambda c: c.data == "list_order_groups")
 async def list_order_groups_handler(callback: types.CallbackQuery):
     order_groups = load_order_groups()
@@ -2272,17 +2406,17 @@ async def list_order_groups_handler(callback: types.CallbackQuery):
         groups_text = "📤 Buyurtma guruhlari:\n" + "\n".join([f"• {g}" for g in order_groups])
     else:
         groups_text = "📭 Buyurtma guruhlari yo'q"
-    await callback.message.edit_text(groups_text)
+    await callback.message.edit_text(groups_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Orqaga", callback_data="groups_menu")]]))
 
 @dp.callback_query(lambda c: c.data == "add_order_group_prompt")
 async def add_order_group_prompt_handler(callback: types.CallbackQuery):
     user_states[callback.from_user.id] = 'waiting_add_order_group_id'
-    await callback.message.edit_text("Buyurtma guruhi ID sini yuboring:\nMisol: -1001234567890")
+    await callback.message.edit_text("Buyurtma guruhi ID sini yuboring:\nMisol: -1001234567890", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="groups_menu")]]))
 
 @dp.callback_query(lambda c: c.data == "remove_order_group_prompt")
 async def remove_order_group_prompt_handler(callback: types.CallbackQuery):
     user_states[callback.from_user.id] = 'waiting_remove_order_group_id'
-    await callback.message.edit_text("O'chirish uchun buyurtma guruhi ID sini yuboring:\nMisol: -1001234567890")
+    await callback.message.edit_text("O'chirish uchun buyurtma guruhi ID sini yuboring:\nMisol: -1001234567890", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="groups_menu")]]))
 
 @dp.callback_query(lambda c: c.data == "add_admin_prompt")
 async def add_admin_prompt_handler(callback: types.CallbackQuery):

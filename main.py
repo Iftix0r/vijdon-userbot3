@@ -114,6 +114,20 @@ class AccountConfig:
                 # Yangi config yaratish - bo'sh guruhlar bilan (har akkaunt o'zi topadi)
                 self._save_config()
                 logger.info(f"Akkaunt #{self.profile_id} yangi konfiguratsiya yaratildi (guruhlar avtomatik topiladi)")
+            
+            # Bazadan reklama guruhlarini ham yuklash (global boshqaruv uchun)
+            try:
+                with get_main_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='reklama_groups'")
+                    if cursor.fetchone():
+                        cursor.execute('SELECT group_identifier FROM reklama_groups')
+                        db_reklama = [row[0] for row in cursor.fetchall()]
+                        if db_reklama:
+                            self.reklama_groups = db_reklama
+                            logger.info(f"Akkaunt #{self.profile_id}: {len(db_reklama)} ta reklama guruhi bazadan yuklandi.")
+            except Exception as e:
+                logger.warning(f"Bazadan reklama guruhlarini yuklashda xatolik: {e}")
         except Exception as e:
             logger.error(f"Akkaunt #{self.profile_id} config yuklash xatolik: {e}")
     
