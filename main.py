@@ -280,6 +280,34 @@ class AccountConfig:
                     )
                 ''')
                 conn.commit()
+                
+                # Asosiy bazaga ham (Global ko'rinish uchun)
+                try:
+                    with get_main_db() as main_conn:
+                        m_cursor = main_conn.cursor()
+                        m_cursor.execute('''
+                            INSERT OR REPLACE INTO users (user_id, user_name, username, phone, bio, first_seen, last_seen)
+                            VALUES (?, ?, ?, ?, ?, 
+                                    COALESCE((SELECT first_seen FROM users WHERE user_id = ?), CURRENT_TIMESTAMP),
+                                    CURRENT_TIMESTAMP)
+                        ''', (user_id, user_name, username, phone, bio, user_id))
+                        # Asosiy bazadagi oxirgi raqamni olish
+                        m_cursor.execute('SELECT COALESCE(MAX(order_number), 0) + 1 FROM zakazlar')
+                        m_next = m_cursor.fetchone()[0]
+                        m_cursor.execute('''
+                            INSERT INTO zakazlar (order_number, user_id, user_type, message, group_name, group_id)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (m_next, user_id, user_type, message, group_name, group_id))
+                        # Global bazada 200 ta saqlash
+                        m_cursor.execute('''
+                            DELETE FROM zakazlar WHERE id NOT IN (
+                                SELECT id FROM zakazlar ORDER BY sana DESC LIMIT 200
+                            )
+                        ''')
+                        main_conn.commit()
+                except Exception as e:
+                    logger.error(f"Global bazaga saqlashda xatolik: {e}")
+                
                 return next_order_number
         except Exception as e:
             logger.error(f"Akkaunt #{self.profile_id} zakaz saqlash: {e}")
@@ -595,6 +623,34 @@ class AccountConfig:
                     )
                 ''')
                 conn.commit()
+                
+                # Asosiy bazaga ham (Global ko'rinish uchun)
+                try:
+                    with get_main_db() as main_conn:
+                        m_cursor = main_conn.cursor()
+                        m_cursor.execute('''
+                            INSERT OR REPLACE INTO users (user_id, user_name, username, phone, bio, first_seen, last_seen)
+                            VALUES (?, ?, ?, ?, ?, 
+                                    COALESCE((SELECT first_seen FROM users WHERE user_id = ?), CURRENT_TIMESTAMP),
+                                    CURRENT_TIMESTAMP)
+                        ''', (user_id, user_name, username, phone, bio, user_id))
+                        # Asosiy bazadagi oxirgi raqamni olish
+                        m_cursor.execute('SELECT COALESCE(MAX(order_number), 0) + 1 FROM zakazlar')
+                        m_next = m_cursor.fetchone()[0]
+                        m_cursor.execute('''
+                            INSERT INTO zakazlar (order_number, user_id, user_type, message, group_name, group_id)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', (m_next, user_id, user_type, message, group_name, group_id))
+                        # Global bazada 200 ta saqlash
+                        m_cursor.execute('''
+                            DELETE FROM zakazlar WHERE id NOT IN (
+                                SELECT id FROM zakazlar ORDER BY sana DESC LIMIT 200
+                            )
+                        ''')
+                        main_conn.commit()
+                except Exception as e:
+                    logger.error(f"Global bazaga saqlashda xatolik: {e}")
+                
                 return next_order_number
         except Exception as e:
             logger.error(f"Akkaunt #{self.profile_id} zakaz saqlash: {e}")
