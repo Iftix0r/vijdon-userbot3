@@ -10,10 +10,18 @@ from telethon.errors import SessionPasswordNeededError
 
 import re
 import json
+import html
 import logging
 from contextlib import contextmanager
 
 load_dotenv()
+
+# ANSI Ranglar
+G = "\033[92m"  # Yashil
+R = "\033[91m"  # Qizil
+Y = "\033[93m"  # Sariq
+B = "\033[94m"  # Moviy
+W = "\033[0m"   # Reset
 
 # Logging sozlash
 logging.basicConfig(
@@ -112,6 +120,29 @@ def init_keywords_db():
         )
     ''')
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            user_name TEXT,
+            username TEXT,
+            phone TEXT,
+            first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS zakazlar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_number INTEGER,
+            user_id INTEGER,
+            user_type TEXT,
+            message TEXT,
+            group_name TEXT,
+            group_id INTEGER,
+            sana DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (user_id)
+        )
+    ''')
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS incomplete_orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_number INTEGER,
@@ -129,6 +160,16 @@ def init_keywords_db():
             completed_date DATETIME
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    
+    # Default sozlamalarni qo'shish
+    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', 
+                  ('order_header', '🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI!</b>'))
     
     # Default adminlarni qo'shish
     for admin_id in ADMIN_IDS:
@@ -243,6 +284,32 @@ def delete_incomplete_order(order_id):
             return True
     except Exception as e:
         logger.error(f"Error deleting incomplete order: {e}")
+        return False
+
+
+
+# Settings functions
+def get_setting(key, default=None):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT value FROM settings WHERE key = ?', (key,))
+            row = cursor.fetchone()
+            return row[0] if row else default
+    except Exception as e:
+        logger.error(f"Error getting setting {key}: {e}")
+        return default
+
+def set_setting(key, value):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
+            conn.commit()
+            logger.info(f"Setting updated: {key} = {value}")
+            return True
+    except Exception as e:
+        logger.error(f"Error setting {key}: {e}")
         return False
 
 
@@ -746,6 +813,9 @@ async def back_main(callback: types.CallbackQuery):
 
 @dp.callback_query(lambda c: c.data.startswith("block_user_") or c.data.startswith("block_"))
 async def block_user_callback(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("🚫 Siz admin emassiz!", show_alert=True)
+        return
     try:
         # block_user_123_456 yoki block_123 formatini qabul qiladi
         data = callback.data.replace("block_user_", "").replace("block_", "")
@@ -1177,7 +1247,7 @@ async def send_order_buttons(user_id, user_name, formatted_phone, username):
             logger.error(f"Tugmalar qo'shimcha guruhlarga yuborishda xatolik: {e}")
     except Exception as e:
         logger.error(f"Tugmalar yuborishda xatolik: {e}")
-        print(f"❌ XATOLIK: Tugmalar yuborishda - {e}")
+        print(f"{R}❌ XATOLIK: Tugmalar yuborishda - {e} {W}")
         
     except Exception as e:
         error_msg = str(e)
@@ -1374,8 +1444,21 @@ async def handle_text_message(message: types.Message):
                 await message.answer(f"❌ Saqlashda xatolik: {e}")
             return
 
-    # So'z qo'shish holatlari
+    # Sozlalar va boshqa holatlar
     if user_id in user_states:
+        if user_states[user_id] == 'waiting_order_header':
+            header = message.text.strip()
+            set_setting('order_header', header)
+            del user_states[user_id]
+            keyboard, new_header = general_settings_menu()
+            await message.answer(
+                f"✅ Buyurtma sarlavhasi saqlandi!\n\n"
+                f"📝 <b>Hozirgi sarlavha:</b>\n{new_header}",
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+            return
+        
         if user_states[user_id] == 'waiting_driver_words':
             words = [w.strip() for w in message.text.split(',')]
             for word in words:
@@ -1748,7 +1831,8 @@ def admin_menu():
         inline_keyboard=[
             [InlineKeyboardButton(text="📋 Guruh boshqaruvi", callback_data="groups_menu")],
             [InlineKeyboardButton(text="👥 Foydalanuvchilar boshqaruvi", callback_data="users_menu")],
-            [InlineKeyboardButton(text="👤 Profillar boshqaruvi", callback_data="profiles_menu")]
+            [InlineKeyboardButton(text="👤 Profillar boshqaruvi", callback_data="profiles_menu")],
+            [InlineKeyboardButton(text="⚙️ Umumiy sozlamalar", callback_data="general_settings_menu")]
         ]
     )
     return keyboard
@@ -1792,6 +1876,54 @@ def users_menu():
         ]
     )
     return keyboard
+
+# General Settings menu
+def general_settings_menu():
+    current_header = get_setting('order_header', '')
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📝 Buyurtma sarlavhasini o'zgartirish", callback_data="edit_order_header")],
+            [InlineKeyboardButton(text="🗑 Sarlavhani o'chirish", callback_data="clear_order_header")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
+        ]
+    )
+    return keyboard, current_header
+
+@dp.callback_query(lambda c: c.data == "general_settings_menu")
+async def general_settings_menu_handler(callback: types.CallbackQuery):
+    keyboard, header = general_settings_menu()
+    await callback.message.edit_text(
+        f"⚙️ <b>Umumiy sozlamalar</b>\n\n"
+        f"📝 <b>Hozirgi buyurtma sarlavhasi:</b>\n{header}\n\n"
+        f"Sarlavhani o'zgartirish uchun quyidagi tugmani bosing:",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "edit_order_header")
+async def edit_order_header_handler(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    user_states[user_id] = 'waiting_order_header'
+    await callback.message.edit_text(
+        "📝 <b>Yangi buyurtma sarlavhasini yuboring:</b>\n\n"
+        "HTML teglardan foydalanish mumkin (b, i, a).\n"
+        "Masalan: 🚕 <b>DIQQAT! YANGI BUYURTMA</b>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 Bekor qilish", callback_data="general_settings_menu")]]),
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "clear_order_header")
+async def clear_order_header_handler(callback: types.CallbackQuery):
+    set_setting('order_header', '')
+    await callback.answer("✅ Buyurtma sarlavhasi olib tashlandi", show_alert=True)
+    keyboard, header = general_settings_menu()
+    await callback.message.edit_text(
+        f"⚙️ <b>Umumiy sozlamalar</b>\n\n"
+        f"📝 <b>Hozirgi buyurtma sarlavhasi:</b>\n(Bo'sh)\n\n"
+        f"Sarlavhani o'zgartirish uchun quyidagi tugmani bosing:",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
 
 @dp.message(lambda message: message.text == "⚙️ Sozlamalar")
 async def settings_handler(message: types.Message):
@@ -2124,6 +2256,53 @@ async def remove_profile_handler(callback: types.CallbackQuery):
         logger.error(f"Profil o'chirish: {e}")
         await callback.message.edit_text(f"❌ Xatolik: {e}")
 
+
+@dp.callback_query(lambda c: c.data and c.data.startswith('write_'))
+async def write_user_handler(callback: types.CallbackQuery):
+    try:
+        parts = callback.data.split('_')
+        user_id = parts[1]
+        username_from_data = parts[2] if len(parts) > 2 else ""
+        
+        user_name = "Foydalanuvchi"
+        if callback.message and (callback.message.text or callback.message.caption):
+            msg_text_to_search = callback.message.text or callback.message.caption
+            # message matnidan "👤 " bilan boshlangan qatorni qidiramiz
+            lines = msg_text_to_search.split('\n')
+            for line in lines:
+                line = line.strip()
+                if line.startswith("👤 "):
+                    user_name = line[2:].strip()
+                    break
+        
+        # Link generation
+        if username_from_data and username_from_data != "None":
+            msg_text = f"Bog'lanish <a href='https://t.me/{username_from_data}'>{html.escape(user_name)}</a>"
+        elif user_id != '0':
+            msg_text = f"Bog'lanish <a href='tg://user?id={user_id}'>{html.escape(user_name)}</a>"
+        else:
+            msg_text = f"Bog'lanish <a href='tg://user?id={user_id}'>{html.escape(user_name)}</a>"
+            
+        try:
+            conn = sqlite3.connect('zakazlar.db')
+            cursor = conn.cursor()
+            cursor.execute('''CREATE TABLE IF NOT EXISTS pending_userbot_messages (
+                              id INTEGER PRIMARY KEY AUTOINCREMENT,
+                              chat_id INTEGER,
+                              message TEXT
+                              )''')
+            cursor.execute('INSERT INTO pending_userbot_messages (chat_id, message) VALUES (?, ?)', (callback.message.chat.id, msg_text))
+            conn.commit()
+            conn.close()
+            await callback.answer("✅ Xabar userbot akkaunti orqali yuborildi!", show_alert=True)
+        except Exception as e:
+            logger.error(f"DB xatolik: {e}")
+            await callback.message.reply(msg_text, parse_mode='HTML')
+            await callback.answer()
+    except Exception as e:
+        logger.error(f"Write tugmasi xatosi: {e}")
+        await callback.answer(f"Xatolik yuz berdi: {e}", show_alert=True)
+
 async def send_demo_orders():
     """Bot ishga tushganda 10 ta demo zakaz yuborish"""
     print("🔍 Guruhlarni tekshirish...")
@@ -2131,9 +2310,9 @@ async def send_demo_orders():
     # Asosiy guruhni tekshirish
     try:
         chat_info = await bot.get_chat(ORDER_GROUP_ID)
-        print(f"✅ Asosiy guruh mavjud: {chat_info.title if hasattr(chat_info, 'title') else ORDER_GROUP_ID}")
+        print(f"{G}✅ Asosiy guruh mavjud: {chat_info.title if hasattr(chat_info, 'title') else ORDER_GROUP_ID} {W}")
     except Exception as e:
-        print(f"❌ Asosiy guruhga kirish imkoni yo'q: {e}")
+        print(f"{R}❌ Asosiy guruhga kirish imkoni yo'q: {e} {W}")
         logger.error(f"Asosiy guruh tekshiruvi: {e}")
         return
     print("📋 Demo zakazlar tayyorlanmoqda...")
@@ -2154,7 +2333,7 @@ async def send_demo_orders():
     successful_orders = 0
     
     for i, order in enumerate(demo_orders, 1):
-        print(f"📤 Demo zakaz #{i} yuborilmoqda...")
+        print(f"{B}📤 Demo zakaz #{i} yuborilmoqda... {W}")
         try:
             # Qo'ngiroq qilish tugmasi
             buttons = [
@@ -2236,25 +2415,25 @@ async def send_demo_orders():
                 logger.error(f"Demo zakazni bazaga saqlashda xatolik: {e}")
             
             successful_orders += 1
-            print(f"✅ Demo zakaz #{i} muvaffaqiyatli yuborildi")
+            print(f"{G}✅ Demo zakaz #{i} muvaffaqiyatli yuborildi {W}")
             
             # Har bir zakaz orasida 1 soniya kutish
             await asyncio.sleep(1)
             
         except Exception as e:
-            print(f"❌ Demo zakaz #{i} xatolik: {e}")
+            print(f"{R}❌ Demo zakaz #{i} xatolik: {e} {W}")
             logger.error(f"Demo zakaz #{i} umumiy xatolik: {e}")
             continue  # Keyingi zakazga o'tish
     
-    print(f"✅ {successful_orders}/10 demo zakaz muvaffaqiyatli yuborildi")
+    print(f"{G}✅ {successful_orders}/10 demo zakaz muvaffaqiyatli yuborildi {W}")
     logger.info(f"Demo zakazlar yuborish tugadi: {successful_orders}/10")
 
 async def main():
-    print("🤖 Bot ishga tushmoqda...")
+    print(f"{B}🤖 Bot ishga tushmoqda...{W}")
     
     # Ma'lumotlar bazasini ishga tushirish
     init_keywords_db()
-    print("✅ Keywords bazasi tayyor")
+    print(f"{G}✅ Keywords bazasi tayyor{W} {W}")
     
     # Main.py ni avtomatik ishga tushirish
     import subprocess

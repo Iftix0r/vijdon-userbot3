@@ -1,6 +1,8 @@
+import time
 from telethon import TelegramClient, events
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.errors import SessionPasswordNeededError
+import html
 import asyncio
 import aiohttp
 import os
@@ -10,6 +12,13 @@ import re
 import logging
 from dotenv import load_dotenv
 from contextlib import contextmanager
+
+# ANSI Ranglar
+G = "\033[92m"  # Yashil
+R = "\033[91m"  # Qizil
+Y = "\033[93m"  # Sariq
+B = "\033[94m"  # Moviy
+W = "\033[0m"   # Reset
 
 
 load_dotenv()
@@ -85,6 +94,8 @@ class AccountConfig:
         self.bot_username = "vijdonuserbot"
         self.keywords = {"driver": [], "passenger": []}
         self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
+        self.last_keyword_load = 0
+        self.last_config_load = 0
         self._load_config()
         self._init_db()
         self._load_keywords()
@@ -159,6 +170,7 @@ class AccountConfig:
                         user_name TEXT,
                         username TEXT,
                         phone TEXT,
+                        bio TEXT,
                         first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
                         last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
@@ -218,17 +230,27 @@ class AccountConfig:
         except:
             return False
     
-    def save_user_and_zakaz(self, user_id, user_name, username, phone, user_type, message, group_name, group_id):
+    def get_user_bio(self, user_id):
+        try:
+            with self.get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT bio FROM users WHERE user_id = ?', (user_id,))
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except:
+            return None
+
+    def save_user_and_zakaz(self, user_id, user_name, username, phone, user_type, message, group_name, group_id, bio=None):
         """Buyurtmani akkaunt bazasiga saqlash"""
         try:
             with self.get_db() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT OR REPLACE INTO users (user_id, user_name, username, phone, first_seen, last_seen)
-                    VALUES (?, ?, ?, ?, 
+                    INSERT OR REPLACE INTO users (user_id, user_name, username, phone, bio, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, 
                             COALESCE((SELECT first_seen FROM users WHERE user_id = ?), CURRENT_TIMESTAMP),
                             CURRENT_TIMESTAMP)
-                ''', (user_id, user_name, username, phone, user_id))
+                ''', (user_id, user_name, username, phone, bio, user_id))
                 
                 cursor.execute('SELECT COALESCE(MAX(order_number), 0) + 1 FROM zakazlar')
                 next_order_number = cursor.fetchone()[0]
@@ -388,6 +410,8 @@ class AccountConfig:
         self.bot_username = "vijdonuserbot"
         self.keywords = {"driver": [], "passenger": []}
         self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
+        self.last_keyword_load = 0
+        self.last_config_load = 0
         self._load_config()
         self._init_db()
         self._load_keywords()
@@ -462,6 +486,7 @@ class AccountConfig:
                         user_name TEXT,
                         username TEXT,
                         phone TEXT,
+                        bio TEXT,
                         first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
                         last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
@@ -521,17 +546,27 @@ class AccountConfig:
         except:
             return False
     
-    def save_user_and_zakaz(self, user_id, user_name, username, phone, user_type, message, group_name, group_id):
+    def get_user_bio(self, user_id):
+        try:
+            with self.get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT bio FROM users WHERE user_id = ?', (user_id,))
+                row = cursor.fetchone()
+                return row[0] if row else None
+        except:
+            return None
+
+    def save_user_and_zakaz(self, user_id, user_name, username, phone, user_type, message, group_name, group_id, bio=None):
         """Buyurtmani akkaunt bazasiga saqlash"""
         try:
             with self.get_db() as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT OR REPLACE INTO users (user_id, user_name, username, phone, first_seen, last_seen)
-                    VALUES (?, ?, ?, ?, 
+                    INSERT OR REPLACE INTO users (user_id, user_name, username, phone, bio, first_seen, last_seen)
+                    VALUES (?, ?, ?, ?, ?, 
                             COALESCE((SELECT first_seen FROM users WHERE user_id = ?), CURRENT_TIMESTAMP),
                             CURRENT_TIMESTAMP)
-                ''', (user_id, user_name, username, phone, user_id))
+                ''', (user_id, user_name, username, phone, bio, user_id))
                 
                 cursor.execute('SELECT COALESCE(MAX(order_number), 0) + 1 FROM zakazlar')
                 next_order_number = cursor.fetchone()[0]
@@ -701,7 +736,9 @@ def create_message_handler(acc: AccountConfig):
         acc.processed_messages.add(msg_key)
         
         # Konfiguratsiyani yangilash (buyurtma guruhi o'zgargan bo'lishi mumkin)
-        acc._load_config()
+        if time.time() - acc.last_config_load > 300:
+            acc._load_config()
+            acc.last_config_load = time.time()
         
         me = await event.client.get_me()
         bot_id = int(BOT_TOKEN.split(':')[0])
@@ -718,13 +755,20 @@ def create_message_handler(acc: AccountConfig):
             print(f"  📥 Akkaunt #{acc.profile_id}: Yangi guruh qo'shildi: {event.chat_id} (profil: {pname})")
             logger.info(f"Akkaunt #{acc.profile_id} yangi guruh: {event.chat_id}")
         
-        text_content = event.text or ""
-        if not text_content:
+        is_voice = bool(event.message.voice)
+        text_content = event.message.message or ""
+        
+        if is_voice and not text_content:
+            text_content = "🎤 Ovozli xabar"
+
+        if not text_content and not is_voice:
             return
-        if len(text_content) > 100:
-            return
-        if event.message.sticker:
-            return
+            
+        if not is_voice:
+            if len(text_content) > 150:
+                return
+            if event.message.sticker:
+                return
         
         emoji_pattern = re.compile("[" 
             u"\U0001F600-\U0001F64F"
@@ -734,7 +778,7 @@ def create_message_handler(acc: AccountConfig):
             u"\U00002702-\U000027B0"
             u"\U000024C2-\U0001F251"
             "]+", flags=re.UNICODE)
-        if emoji_pattern.search(text_content):
+        if not is_voice and emoji_pattern.search(text_content):
             return
         
         sender = None
@@ -751,6 +795,7 @@ def create_message_handler(acc: AccountConfig):
         user_id = 0
         user_info = "👤 Foydalanuvchi"
         user_details_parts = []
+        user_bio = ""
         
         if sender:
             try:
@@ -765,6 +810,7 @@ def create_message_handler(acc: AccountConfig):
                     user_details_parts.append(f"🤙 @{sender.username}")
                 if hasattr(sender, 'phone') and sender.phone:
                     user_details_parts.append(f"☎️ +{sender.phone}")
+
             except:
                 user_info = "👤 Noma'lum foydalanuvchi"
         
@@ -792,19 +838,37 @@ def create_message_handler(acc: AccountConfig):
                 break
         
         # Kalit so'z tekshirish 
-        acc._load_keywords()  # Yangilash
-        text_lower = text_content.lower().strip()
-        
-        has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
-        has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
-        
-        if has_driver_words:
-            return
-        if not has_passenger_words:
-            return
+        if not is_voice:
+            if time.time() - acc.last_keyword_load > 600:
+                acc._load_keywords()
+                acc.last_keyword_load = time.time()
+            text_lower = text_content.lower().strip()
+            
+            has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
+            has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
+            
+            if has_driver_words:
+                return
+            if not has_passenger_words:
+                return
         
         user_type = '🙋♂️ Yolovchi'
         is_blocked = acc.is_user_blocked(user_id)
+        
+        # Bio faqat zakaz aniqlangandan keyin tortiladi, shunda Flood Wait kamayadi
+        if not user_bio and sender and hasattr(sender, 'id'):
+            user_bio = acc.get_user_bio(sender.id)
+            if not user_bio:
+                try:
+                    full_user = await event.client(GetFullUserRequest(sender.id))
+                    if full_user.full_user.about:
+                        about_text = full_user.full_user.about
+                        if len(about_text) > 80: about_text = about_text[:77] + "..."
+                        user_bio = html.escape(about_text)
+                    else:
+                        user_bio = " " # Mark as checked but empty
+                except:
+                    pass
         
         clean_user_name = ''
         username = ''
@@ -823,7 +887,7 @@ def create_message_handler(acc: AccountConfig):
             chat_title = chat.title
         
         # Akkaunt bazasiga saqlash
-        order_number = acc.save_user_and_zakaz(user_id, clean_user_name.strip(), username, phone, user_type, text_content, chat_title, event.chat_id)
+        order_number = acc.save_user_and_zakaz(user_id, clean_user_name.strip(), username, phone, user_type, text_content, chat_title, event.chat_id, user_bio)
         
         if is_blocked:
             return
@@ -831,67 +895,53 @@ def create_message_handler(acc: AccountConfig):
         # AKKAUNT O'Z BUYURTMA GURUHIGA YUBORISH
         ORDER_GID = acc.order_group_id
         
-        try:
-            user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI! #{order_number}</b>"]
-            message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-            if username:
-                message_parts.append(f"🤙 @{username}")
-            if text_content and text_content.strip():
-                message_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-            if phones:
-                phone_num = phones[0].replace(' ', '').replace('-', '')
-                if phone_num.startswith('998'):
-                    phone_num = '+' + phone_num
-                elif not phone_num.startswith('+998'):
-                    phone_num = '+998' + phone_num
-                message_parts.append(f"📞 {phone_num}")
-            elif sender and hasattr(sender, 'phone') and sender.phone:
-                message_parts.append(f"📞 +{sender.phone}")
-            
-            caption = "\n\n".join(message_parts)
-            
-            # Tugmalarni yaratish - faqat qo'ng'iroq tugmasi
-            buttons = []
-            if phones:
-                phone = phones[0].replace(' ', '').replace('-', '')
-                if not phone.startswith('+'):
-                    phone = '+998' + phone if phone.startswith('998') else '+' + phone
-                buttons.append([{"text": f"📞 {phone}", "url": f"https://onmap.uz/tel/{phone}"}])
-            
-            # Bot orqali yuborish
-            try:
-                reply_markup = {"inline_keyboard": buttons} if buttons else None
-                await bot.send_message(chat_id=ORDER_GID, text=caption, parse_mode='HTML', reply_markup=reply_markup)
-                print(f"✅ BOT ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
-                logger.info(f"Bot Zakaz #{order_number} yuborildi")
-            except Exception as e:
-                logger.error(f"Bot yuborish xatolik: {e}")
-                # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali matn yuborish
-                try:
-                    await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
-                    logger.info(f"Akkaunt #{acc.profile_id} Zakaz #{order_number} yuborildi")
-                except Exception as e2:
-                    logger.error(f"Akkaunt #{acc.profile_id} yuborish xatolik: {e2}")
-        except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} buyurtma yuborish: {e}")
-        
-        # Bio olish
-        user_bio = ""
-        if sender:
-            try:
-                full_user = await event.client(GetFullUserRequest(sender.id))
-                user_bio = full_user.full_user.about or ""
-            except:
-                pass
-        
-        # Bot orqali tugmalar yuborish
+        # Bot orqali buyurtma yuborish
         try:
             async with aiohttp.ClientSession() as session:
-                user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                buttons_message = f"<i>📝 {user_bio}</i>" if user_bio else f"🚕 <b>#{order_number}</b>"
+                api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                 
+                esc_user_name = html.escape(user_name)
+                esc_text = html.escape(text_content.strip() if text_content else "")
+                
+                # Sarlavhani olish
+                order_header = ""
+                try:
+                    with get_main_db() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT value FROM settings WHERE key='order_header'")
+                        row = cursor.fetchone()
+                        if row: order_header = row[0]
+                except: pass
+                
+                # 1. ASOSIY ZAKAZ XABARI
+                message_parts = []
+                if order_header:
+                    # Agar sarlavha bo'lsa, unga #number qo'shamiz
+                    if order_header.endswith('!'):
+                        message_parts.append(f"{order_header} #{order_number}")
+                    else:
+                        message_parts.append(f"{order_header} #{order_number}")
+                else:
+                    message_parts.append(f"<b>Yangi buyurtma #{order_number}</b>")
+
+                message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{esc_user_name}</a>")
+                if user_bio and user_bio.strip():
+                    message_parts.append(f"ℹ️ <i>{user_bio}</i>")
+                if username:
+                    message_parts.append(f"🤙 @{username}")
+                if esc_text:
+                    message_parts.append(f"💬 <b><i>{esc_text}</i></b>")
+                if phones:
+                    phone_num = phones[0].replace(' ', '').replace('-', '')
+                    if phone_num.startswith('998'): phone_num = '+' + phone_num
+                    elif not phone_num.startswith('+998'): phone_num = '+998' + phone_num
+                    message_parts.append(f"📞 {phone_num}")
+                elif sender and hasattr(sender, 'phone') and sender.phone:
+                    message_parts.append(f"📞 +{sender.phone}")
+                
+                caption = "\n\n".join(message_parts)
+                
+                # Tugmalar
                 buttons = []
                 row1 = []
                 phone_to_call = None
@@ -900,129 +950,133 @@ def create_message_handler(acc: AccountConfig):
                 elif sender and hasattr(sender, 'phone') and sender.phone:
                     phone_to_call = sender.phone
                 if phone_to_call:
-                    if phone_to_call.startswith('998'):
-                        phone_to_call = '+' + phone_to_call
-                    elif not phone_to_call.startswith('+'):
-                        phone_to_call = '+998' + phone_to_call
+                    if phone_to_call.startswith('998'): phone_to_call = '+' + phone_to_call
+                    elif not phone_to_call.startswith('+'): phone_to_call = '+998' + phone_to_call
                     row1.append({"text": "📞 Qo'ngiroq", "url": f"https://onmap.uz/tel/{phone_to_call}"})
                 if message_link and message_link != "#":
-                    row1.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
+                    row1.append({"text": "🔍 Xabar", "url": message_link})
                 if row1:
                     buttons.append(row1)
+                
                 row2 = []
                 if user_id and user_id > 0:
-                    row2.append({"text": f"👤 {user_name}", "url": f"tg://user?id={user_id}"})
+                    row2.append({"text": "✍️ Yozish", "callback_data": f"write_{user_id}_{username or ''}"})
+                    row2.append({"text": "🚫 Bloklash", "callback_data": f"block_{user_id}"})
                 elif username:
-                    row2.append({"text": f"👤 {user_name}", "url": f"https://t.me/{username}"})
+                    row2.append({"text": "✍️ Yozish", "callback_data": f"write_0_{username}"})
+                    row2.append({"text": "🚫 Bloklash", "callback_data": f"block_0_{username}"})
+                    
                 if row2:
                     buttons.append(row2)
                 
-                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                 payload = {
                     "chat_id": ORDER_GID,
-                    "text": buttons_message,
+                    "text": caption,
                     "parse_mode": "HTML",
                     "reply_markup": {"inline_keyboard": buttons} if buttons else None
                 }
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        print(f"✅ AKK#{acc.profile_id} TUGMALAR -> {ORDER_GID}")
-                    else:
-                        logger.error(f"Akkaunt #{acc.profile_id} tugmalar: {resp.status}")
                 
-                # Reklama guruhlarga yuborish
+                # Asosiy guruhga yuborish
+                try:
+                    target_url = api_url
+                    send_data = None
+                    if is_voice:
+                        target_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice"
+                        voice_file = await event.message.download_media(file=bytes)
+                        
+                        form = aiohttp.FormData()
+                        form.add_field('chat_id', str(ORDER_GID))
+                        form.add_field('caption', caption)
+                        form.add_field('parse_mode', 'HTML')
+                        if buttons:
+                            form.add_field('reply_markup', json.dumps({"inline_keyboard": buttons}))
+                        form.add_field('voice', voice_file, filename='voice.ogg', content_type='audio/ogg')
+                        send_data = form
+                    else:
+                        send_data = {
+                            "chat_id": ORDER_GID,
+                            "text": caption,
+                            "parse_mode": "HTML",
+                            "reply_markup": {"inline_keyboard": buttons} if buttons else None
+                        }
+
+                    if is_voice:
+                         async with session.post(target_url, data=send_data) as resp:
+                            if resp.status == 200:
+                                print(f"{G}✅ BOT ZAKAZ (Ovozli) #{order_number} -> {ORDER_GID}{W} {W}")
+                            else:
+                                resp_text = await resp.text()
+                                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+                                print(f"{R}❌ BOT VOICE XATOLIK: {resp.status}, detail: {resp_text}{W} {W}")
+                    else:
+                        async with session.post(target_url, json=send_data) as resp:
+                            if resp.status == 200:
+                                print(f"{G}✅ BOT ZAKAZ #{order_number} -> {ORDER_GID}{W} {W}")
+                            else:
+                                resp_text = await resp.text()
+                                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+                                print(f"{R}❌ BOT XATOLIK: {resp.status}, detail: {resp_text}{W} {W}")
+                except Exception as send_err:
+                    logger.error(f"Bot yuborish xatolik: {send_err}")
+                    await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+
+                # 3. REKLAMA GURUHLARGA
                 try:
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
-                    special_message = f"� <b>>YANGI BUYURTMA BOR #{order_number}</b>"
                     if clean_text:
-                        special_message += f"\n\n<i>{clean_text}</i>"
-                    
-                    admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
-                    special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
-                    
-                    for special_group in acc.reklama_groups:
-                        try:
-                            special_payload = {
-                                "chat_id": special_group,
-                                "text": special_message,
-                                "parse_mode": "HTML",
-                                "reply_markup": {"inline_keyboard": special_buttons}
-                            }
-                            async with session.post(url, json=special_payload) as resp:
-                                if resp.status == 200:
-                                    print(f"✅ AKK#{acc.profile_id} REKLAMA -> {special_group}")
-                            await asyncio.sleep(0.3)
-                        except Exception as e:
-                            logger.error(f"Akkaunt #{acc.profile_id} reklama {special_group}: {e}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} reklama: {e}")
-                
-                # Qo'shimcha buyurtma guruhlarga
+                        spec_msg = (
+                            f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n"
+                            f"{html.escape(clean_text)}\n"
+                            f"<b>Buyurtmalar guruhiga qo'shilish uchun 👇</b>"
+                        )
+                        admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
+                        spec_btns = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
+                        
+                        for sg in acc.reklama_groups:
+                            try:
+                                if is_voice and 'voice_file' in locals():
+                                    form = aiohttp.FormData()
+                                    form.add_field('chat_id', str(sg))
+                                    form.add_field('caption', spec_msg)
+                                    form.add_field('parse_mode', 'HTML')
+                                    form.add_field('reply_markup', json.dumps({"inline_keyboard": spec_btns}))
+                                    form.add_field('voice', voice_file, filename='voice.ogg', content_type='audio/ogg')
+                                    await session.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice", data=form)
+                                else:
+                                    await session.post(api_url, json={
+                                        "chat_id": sg,
+                                        "text": spec_msg,
+                                        "parse_mode": "HTML",
+                                        "reply_markup": {"inline_keyboard": spec_btns}
+                                    })
+                                await asyncio.sleep(0.3)
+                            except: pass
+                except Exception as re_err:
+                    logger.error(f"Reklama xatolik: {re_err}")
+
+                # 4. QO'SHIMCHA GURUHLARGA
                 try:
                     with acc.get_db() as conn:
                         cursor = conn.cursor()
                         cursor.execute('SELECT group_id FROM order_groups')
-                        extra_groups = [row[0] for row in cursor.fetchall()]
-                    for gid in extra_groups:
-                        payload["chat_id"] = gid
-                        async with session.post(url, json=payload) as resp:
-                            if resp.status == 200:
-                                logger.info(f"Akkaunt #{acc.profile_id} tugmalar qo'shimcha: {gid}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh tugmalar: {e}")
+                        extra_gids = [r[0] for r in cursor.fetchall()]
+                    for egid in extra_gids:
+                        if is_voice and 'voice_file' in locals():
+                            form = aiohttp.FormData()
+                            form.add_field('chat_id', str(egid))
+                            form.add_field('caption', caption)
+                            form.add_field('parse_mode', 'HTML')
+                            if buttons:
+                                form.add_field('reply_markup', json.dumps({"inline_keyboard": buttons}))
+                            form.add_field('voice', voice_file, filename='voice.ogg', content_type='audio/ogg')
+                            await session.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice", data=form)
+                        else:
+                            payload["chat_id"] = egid
+                            await session.post(api_url, json=payload)
+                except: pass
+
         except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} bot tugmalar: {e}")
-        
-        # Qo'shimcha buyurtma guruhlarga bot orqali
-        try:
-            with acc.get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
-                extra_groups = [row[0] for row in cursor.fetchall()]
-            
-            for gid in extra_groups:
-                try:
-                    user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"🚕 <b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> 🆕 <b>YANGI BUYURTMA KELDI! #{order_number}</b>"]
-                    msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-                    if username:
-                        msg_parts.append(f"🤙 @{username}")
-                    if text_content and text_content.strip():
-                        msg_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-                    if phones:
-                        pn = phones[0].replace(' ', '').replace('-', '')
-                        if pn.startswith('998'): pn = '+' + pn
-                        elif not pn.startswith('+998'): pn = '+998' + pn
-                        msg_parts.append(f"📞 {pn}")
-                    elif sender and hasattr(sender, 'phone') and sender.phone:
-                        msg_parts.append(f"📞 +{sender.phone}")
-                    cap = "\n\n".join(msg_parts)
-                    
-                    # Tugmalarni yaratish - faqat qo'ng'iroq tugmasi
-                    extra_buttons = []
-                    if phones:
-                        pn = phones[0].replace(' ', '').replace('-', '')
-                        if not pn.startswith('+'):
-                            pn = '+998' + pn if pn.startswith('998') else '+' + pn
-                        extra_buttons.append([{"text": f"📞 {pn}", "url": f"https://onmap.uz/tel/{pn}"}])
-                    
-                    # Bot orqali yuborish
-                    try:
-                        reply_markup = {"inline_keyboard": extra_buttons} if extra_buttons else None
-                        await bot.send_message(chat_id=gid, text=cap, parse_mode='HTML', reply_markup=reply_markup)
-                        print(f"✅ BOT ZAKAZ #{order_number} -> qo'shimcha {gid}")
-                    except Exception as e:
-                        logger.error(f"Bot qo'shimcha yuborish: {e}")
-                        # Agar bot yuborish muvaffaq bo'lmasa, akkaunt orqali matn yuborish
-                        try:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                            print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
-                        except Exception as e2:
-                            logger.error(f"Akkaunt qo'shimcha yuborish: {e2}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
-        except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruhlar: {e}")
+            logger.error(f"Akkaunt #{acc.profile_id} bot yuborish: {e}")
     
     return message_handler
 
@@ -1122,7 +1176,7 @@ async def run_account(c, acc: AccountConfig):
         raise RuntimeError(f"Akkaunt #{acc.profile_id} avtorizatsiya qilinmagan: {acc.phone}")
     me = await c.get_me()
     profile_name = f"@{me.username}" if me.username else f"+{me.phone}" if me.phone else str(me.id)
-    print(f"  ✅ Akkaunt #{acc.profile_id} ulandi: {profile_name}")
+    print(f"  {G}✅ Akkaunt #{acc.profile_id} ulandi: {profile_name} {W}")
     print(f"     📤 Buyurtma guruhi: {acc.order_group_id}")
     print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
     print(f"     💾 Baza: {acc.db_file}")
@@ -1131,6 +1185,34 @@ async def run_account(c, acc: AccountConfig):
     register_account_commands(c, acc)
     await c.run_until_disconnected()
 
+
+async def poll_pending_messages(clients):
+    while True:
+        try:
+            with get_main_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''CREATE TABLE IF NOT EXISTS pending_userbot_messages (
+                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                  chat_id INTEGER,
+                                  message TEXT
+                                  )''')
+                cursor.execute("SELECT id, chat_id, message FROM pending_userbot_messages")
+                rows = cursor.fetchall()
+                for row in rows:
+                    msg_id, chat_id, text = row
+                    if clients:
+                        try:
+                            # Send message using the first client
+                            client = clients[0]
+                            await client.send_message(entity=chat_id, message=text, parse_mode='html')
+                        except Exception as e:
+                            logger.error(f"Pending send error: {e}")
+                        finally:
+                            cursor.execute("DELETE FROM pending_userbot_messages WHERE id = ?", (msg_id,))
+                            conn.commit()
+        except Exception as e:
+            pass
+        await asyncio.sleep(2)
 
 async def main():
     bot_username = await get_bot_username()
@@ -1161,7 +1243,7 @@ async def main():
     try:
         if profiles:
             print(f"\n👤 {len(profiles)} ta akkaunt yuklandi")
-            print("=" * 60)
+            print(f"{B}{"=" * 60}{W}")
             
             accounts = []
             for pid, session_name, phone in profiles:
@@ -1170,11 +1252,11 @@ async def main():
                 c = TelegramClient(session_name, API_ID, API_HASH)
                 accounts.append((c, acc))
             
-            print("✅ USERBOT ISHGA TUSHDI! (Ko'p akkaunt rejimi)")
-            print("=" * 60)
+            print(f"{G}✅ USERBOT ISHGA TUSHDI! (Ko'p akkaunt rejimi){W} {W}")
+            print(f"{B}{"=" * 60}{W}")
             for c, acc in accounts:
-                print(f"  📱 Akkaunt #{acc.profile_id}: {acc.phone or acc.session_name}")
-                print(f"     📤 Buyurtma: {acc.order_group_id}")
+                print(f"  📱 {Y}Akkaunt #{acc.profile_id}{W}: {G}{acc.phone or acc.session_name}{W}")
+                print(f"     📤 Buyurtma: {B}{acc.order_group_id}{W}")
                 print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
                 print(f"     💾 Baza: {acc.db_file}")
             print("=" * 60 + "\n")
@@ -1185,9 +1267,11 @@ async def main():
                     await run_account(c, acc)
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} xatolik: {e}")
-                    print(f"❌ Akkaunt #{acc.profile_id}: {e}")
+                    print(f"{R}❌ Akkaunt #{acc.profile_id}: {e} {W}")
             
-            await asyncio.gather(*[run_one(i) for i in range(len(accounts))])
+            tasks = [run_one(i) for i in range(len(accounts))]
+            tasks.append(poll_pending_messages([c for c, acc in accounts]))
+            await asyncio.gather(*tasks)
         else:
             # Legacy: bitta userbot sessiya
             await client.connect()
@@ -1217,11 +1301,12 @@ async def main():
             register_account_handlers(client, legacy_acc)
             register_account_commands(client, legacy_acc)
             
-            print("\n" + "=" * 60)
-            print("✅ USERBOT ISHGA TUSHDI! (Bitta akkaunt)")
-            print("=" * 60)
+            print(f"{B}\n" + "=" * 60 + W)
+            print(f"{G}✅ USERBOT ISHGA TUSHDI! (Bitta akkaunt){W} {W}")
+            print(f"{B}{"=" * 60}{W}")
             print(f"📊 Guruhlar: {len(legacy_groups)} | Buyurtma: {DEFAULT_ORDER_GROUP_ID}")
             print("=" * 60 + "\n")
+            asyncio.create_task(poll_pending_messages([client]))
             await client.run_until_disconnected()
     except Exception as e:
         logger.critical(f"KRITIK XATOLIK: {e}")
@@ -1316,7 +1401,9 @@ def create_message_handler(acc: AccountConfig):
         acc.processed_messages.add(msg_key)
         
         # Konfiguratsiyani yangilash (buyurtma guruhi o'zgargan bo'lishi mumkin)
-        acc._load_config()
+        if time.time() - acc.last_config_load > 300:
+            acc._load_config()
+            acc.last_config_load = time.time()
         
         me = await event.client.get_me()
         bot_id = int(BOT_TOKEN.split(':')[0])
@@ -1333,13 +1420,20 @@ def create_message_handler(acc: AccountConfig):
             print(f"  📥 Akkaunt #{acc.profile_id}: Yangi guruh qo'shildi: {event.chat_id} (profil: {pname})")
             logger.info(f"Akkaunt #{acc.profile_id} yangi guruh: {event.chat_id}")
         
-        text_content = event.text or ""
-        if not text_content:
+        is_voice = bool(event.message.voice)
+        text_content = event.message.message or ""
+        
+        if is_voice and not text_content:
+            text_content = "🎤 Ovozli xabar"
+
+        if not text_content and not is_voice:
             return
-        if len(text_content) > 100:
-            return
-        if event.message.sticker:
-            return
+            
+        if not is_voice:
+            if len(text_content) > 150:
+                return
+            if event.message.sticker:
+                return
         
         emoji_pattern = re.compile("[" 
             u"\U0001F600-\U0001F64F"
@@ -1349,7 +1443,7 @@ def create_message_handler(acc: AccountConfig):
             u"\U00002702-\U000027B0"
             u"\U000024C2-\U0001F251"
             "]+", flags=re.UNICODE)
-        if emoji_pattern.search(text_content):
+        if not is_voice and emoji_pattern.search(text_content):
             return
         
         sender = None
@@ -1366,6 +1460,7 @@ def create_message_handler(acc: AccountConfig):
         user_id = 0
         user_info = "👤 Foydalanuvchi"
         user_details_parts = []
+        user_bio = ""
         
         if sender:
             try:
@@ -1380,6 +1475,7 @@ def create_message_handler(acc: AccountConfig):
                     user_details_parts.append(f"🤙 @{sender.username}")
                 if hasattr(sender, 'phone') and sender.phone:
                     user_details_parts.append(f"☎️ +{sender.phone}")
+
             except:
                 user_info = "👤 Noma'lum foydalanuvchi"
         
@@ -1407,19 +1503,37 @@ def create_message_handler(acc: AccountConfig):
                 break
         
         # Kalit so'z tekshirish 
-        acc._load_keywords()  # Yangilash
-        text_lower = text_content.lower().strip()
-        
-        has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
-        has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
-        
-        if has_driver_words:
-            return
-        if not has_passenger_words:
-            return
+        if not is_voice:
+            if time.time() - acc.last_keyword_load > 600:
+                acc._load_keywords()
+                acc.last_keyword_load = time.time()
+            text_lower = text_content.lower().strip()
+            
+            has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
+            has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
+            
+            if has_driver_words:
+                return
+            if not has_passenger_words:
+                return
         
         user_type = '🙋♂️ Yolovchi'
         is_blocked = acc.is_user_blocked(user_id)
+        
+        # Bio faqat zakaz aniqlangandan keyin tortiladi, shunda Flood Wait kamayadi
+        if not user_bio and sender and hasattr(sender, 'id'):
+            user_bio = acc.get_user_bio(sender.id)
+            if not user_bio:
+                try:
+                    full_user = await event.client(GetFullUserRequest(sender.id))
+                    if full_user.full_user.about:
+                        about_text = full_user.full_user.about
+                        if len(about_text) > 80: about_text = about_text[:77] + "..."
+                        user_bio = html.escape(about_text)
+                    else:
+                        user_bio = " " # Mark as checked but empty
+                except:
+                    pass
         
         clean_user_name = ''
         username = ''
@@ -1438,7 +1552,7 @@ def create_message_handler(acc: AccountConfig):
             chat_title = chat.title
         
         # Akkaunt bazasiga saqlash
-        order_number = acc.save_user_and_zakaz(user_id, clean_user_name.strip(), username, phone, user_type, text_content, chat_title, event.chat_id)
+        order_number = acc.save_user_and_zakaz(user_id, clean_user_name.strip(), username, phone, user_type, text_content, chat_title, event.chat_id, user_bio)
         
         if is_blocked:
             return
@@ -1446,150 +1560,184 @@ def create_message_handler(acc: AccountConfig):
         # AKKAUNT O'Z BUYURTMA GURUHIGA YUBORISH
         ORDER_GID = acc.order_group_id
         
-        try:
-            user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"<b>!</b> <b>#{order_number}</b>"]
-            message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-            if username:
-                message_parts.append(f"🤙 @{username}")
-            if text_content and text_content.strip():
-                message_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-            if phones:
-                phone_num = phones[0].replace(' ', '').replace('-', '')
-                if phone_num.startswith('998'):
-                    phone_num = '+' + phone_num
-                elif not phone_num.startswith('+998'):
-                    phone_num = '+998' + phone_num
-                message_parts.append(f"📞 {phone_num}")
-            elif sender and hasattr(sender, 'phone') and sender.phone:
-                message_parts.append(f"📞 +{sender.phone}")
-            
-            caption = "\n\n".join(message_parts)
-            
-            if sender:
-                try:
-                    profile_photos = await event.client.get_profile_photos(sender)
-                    if profile_photos:
-                        await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False)
-                    else:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
-                    logger.info(f"Akkaunt #{acc.profile_id} Zakaz #{order_number} yuborildi")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} profil rasmi: {e}")
-                    try:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
-                    except Exception as e2:
-                        logger.error(f"Akkaunt #{acc.profile_id} matn yuborish: {e2}")
-            else:
-                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
-        except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} buyurtma yuborish: {e}")
-        
-        # Bio olish
-        user_bio = ""
-        if sender:
-            try:
-                full_user = await event.client(GetFullUserRequest(sender.id))
-                user_bio = full_user.full_user.about or ""
-            except:
-                pass
-        
-        # Bot orqali tugmalar yuborish
+        # Bot orqali buyurtma yuborish
         try:
             async with aiohttp.ClientSession() as session:
-                user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                buttons_message = f"<i>📝 {user_bio}</i>" if user_bio else f"🚕 <b>#{order_number}</b>"
+                api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                 
+                esc_user_name = html.escape(user_name)
+                esc_text = html.escape(text_content.strip() if text_content else "")
+                
+                # Sarlavhani olish
+                order_header = ""
+                try:
+                    with get_main_db() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT value FROM settings WHERE key='order_header'")
+                        row = cursor.fetchone()
+                        if row: order_header = row[0]
+                except: pass
+                
+                # 1. ASOSIY ZAKAZ XABARI
+                message_parts = []
+                if order_header:
+                    message_parts.append(f"{order_header} #{order_number}")
+                else:
+                    message_parts.append(f"<b>Yangi buyurtma #{order_number}</b>")
+
+                message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{esc_user_name}</a>")
+                if user_bio and user_bio.strip():
+                    message_parts.append(f"ℹ️ <i>{user_bio}</i>")
+                if username:
+                    message_parts.append(f"🤙 @{username}")
+                if esc_text:
+                    message_parts.append(f"💬 <b><i>{esc_text}</i></b>")
+                if phones:
+                    phone_num = phones[0].replace(' ', '').replace('-', '')
+                    if phone_num.startswith('998'): phone_num = '+' + phone_num
+                    elif not phone_num.startswith('+998'): phone_num = '+998' + phone_num
+                    message_parts.append(f"📞 {phone_num}")
+                elif sender and hasattr(sender, 'phone') and sender.phone:
+                    message_parts.append(f"📞 +{sender.phone}")
+                
+                caption = "\n\n".join(message_parts)
+                
+                # Tugmalar
                 buttons = []
                 row1 = []
                 phone_to_call = None
-                if phones:rror(f"Akkaunt #{acc.profile_id} tugmalar: {resp.status}")
+                if phones:
+                    phone_to_call = phones[0].replace(' ', '').replace('-', '')
+                elif sender and hasattr(sender, 'phone') and sender.phone:
+                    phone_to_call = sender.phone
+                if phone_to_call:
+                    if phone_to_call.startswith('998'): phone_to_call = '+' + phone_to_call
+                    elif not phone_to_call.startswith('+'): phone_to_call = '+998' + phone_to_call
+                    row1.append({"text": "📞 Qo'ngiroq", "url": f"https://onmap.uz/tel/{phone_to_call}"})
+                if message_link and message_link != "#":
+                    row1.append({"text": "🔍 Xabar", "url": message_link})
+                if row1:
+                    buttons.append(row1)
                 
-                # Reklama guruhlarga yuborish
+                row2 = []
+                if user_id and user_id > 0:
+                    row2.append({"text": "✍️ Yozish", "callback_data": f"write_{user_id}_{username or ''}"})
+                    row2.append({"text": "🚫 Bloklash", "callback_data": f"block_{user_id}"})
+                elif username:
+                    row2.append({"text": "✍️ Yozish", "callback_data": f"write_0_{username}"})
+                    row2.append({"text": "🚫 Bloklash", "callback_data": f"block_0_{username}"})
+                    
+                if row2:
+                    buttons.append(row2)
+                
+                payload = {
+                    "chat_id": ORDER_GID,
+                    "text": caption,
+                    "parse_mode": "HTML",
+                    "reply_markup": {"inline_keyboard": buttons} if buttons else None
+                }
+                
+                # Asosiy guruhga yuborish
+                try:
+                    target_url = api_url
+                    send_data = None
+                    if is_voice:
+                        target_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice"
+                        voice_file = await event.message.download_media(file=bytes)
+                        
+                        form = aiohttp.FormData()
+                        form.add_field('chat_id', str(ORDER_GID))
+                        form.add_field('caption', caption)
+                        form.add_field('parse_mode', 'HTML')
+                        if buttons:
+                            form.add_field('reply_markup', json.dumps({"inline_keyboard": buttons}))
+                        form.add_field('voice', voice_file, filename='voice.ogg', content_type='audio/ogg')
+                        send_data = form
+                    else:
+                        send_data = {
+                            "chat_id": ORDER_GID,
+                            "text": caption,
+                            "parse_mode": "HTML",
+                            "reply_markup": {"inline_keyboard": buttons} if buttons else None
+                        }
+
+                    if is_voice:
+                         async with session.post(target_url, data=send_data) as resp:
+                            if resp.status == 200:
+                                print(f"{G}✅ BOT ZAKAZ (Ovozli) #{order_number} -> {ORDER_GID}{W} {W}")
+                            else:
+                                resp_text = await resp.text()
+                                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+                                print(f"{R}❌ BOT VOICE XATOLIK: {resp.status}, detail: {resp_text}{W} {W}")
+                    else:
+                        async with session.post(target_url, json=send_data) as resp:
+                            if resp.status == 200:
+                                print(f"{G}✅ BOT ZAKAZ #{order_number} -> {ORDER_GID}{W} {W}")
+                            else:
+                                resp_text = await resp.text()
+                                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+                                print(f"{R}❌ BOT XATOLIK: {resp.status}, detail: {resp_text}{W} {W}")
+                except Exception as send_err:
+                    logger.error(f"Bot yuborish xatolik: {send_err}")
+                    await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html')
+
+                # 3. REKLAMA GURUHLARGA
                 try:
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
-                    special_message = f"� <b>>YANGI BUYURTMA BOR #{order_number}</b>"
                     if clean_text:
-                        special_message += f"\n\n<i>{clean_text}</i>"
-                    
-                    admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
-                    special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
-                    
-                    for special_group in acc.reklama_groups:
-                        try:
-                            special_payload = {
-                                "chat_id": special_group,
-                                "text": special_message,
-                                "parse_mode": "HTML",
-                                "reply_markup": {"inline_keyboard": special_buttons}
-                            }
-                            async with session.post(url, json=special_payload) as resp:
-                                if resp.status == 200:
-                                    print(f"✅ AKK#{acc.profile_id} REKLAMA -> {special_group}")
-                            await asyncio.sleep(0.3)
-                        except Exception as e:
-                            logger.error(f"Akkaunt #{acc.profile_id} reklama {special_group}: {e}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} reklama: {e}")
-                
-                # Qo'shimcha buyurtma guruhlarga
+                        spec_msg = (
+                            f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n"
+                            f"{html.escape(clean_text)}\n"
+                            f"<b>Buyurtmalar guruhiga qo'shilish uchun 👇</b>"
+                        )
+                        admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
+                        spec_btns = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
+                        
+                        for sg in acc.reklama_groups:
+                            try:
+                                if is_voice and 'voice_file' in locals():
+                                    form = aiohttp.FormData()
+                                    form.add_field('chat_id', str(sg))
+                                    form.add_field('caption', spec_msg)
+                                    form.add_field('parse_mode', 'HTML')
+                                    form.add_field('reply_markup', json.dumps({"inline_keyboard": spec_btns}))
+                                    form.add_field('voice', voice_file, filename='voice.ogg', content_type='audio/ogg')
+                                    await session.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice", data=form)
+                                else:
+                                    await session.post(api_url, json={
+                                        "chat_id": sg,
+                                        "text": spec_msg,
+                                        "parse_mode": "HTML",
+                                        "reply_markup": {"inline_keyboard": spec_btns}
+                                    })
+                                await asyncio.sleep(0.3)
+                            except: pass
+                except Exception as re_err:
+                    logger.error(f"Reklama xatolik: {re_err}")
+
+                # 4. QO'SHIMCHA GURUHLARGA (Bot orqali)
                 try:
                     with acc.get_db() as conn:
                         cursor = conn.cursor()
                         cursor.execute('SELECT group_id FROM order_groups')
-                        extra_groups = [row[0] for row in cursor.fetchall()]
-                    for gid in extra_groups:
-                        payload["chat_id"] = gid
-                        async with session.post(url, json=payload) as resp:
-                            if resp.status == 200:
-                                logger.info(f"Akkaunt #{acc.profile_id} tugmalar qo'shimcha: {gid}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh tugmalar: {e}")
+                        extra_gids = [r[0] for r in cursor.fetchall()]
+                    for egid in extra_gids:
+                        if is_voice and 'voice_file' in locals():
+                            form = aiohttp.FormData()
+                            form.add_field('chat_id', str(egid))
+                            form.add_field('caption', caption)
+                            form.add_field('parse_mode', 'HTML')
+                            if buttons:
+                                form.add_field('reply_markup', json.dumps({"inline_keyboard": buttons}))
+                            form.add_field('voice', voice_file, filename='voice.ogg', content_type='audio/ogg')
+                            await session.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendVoice", data=form)
+                        else:
+                            payload["chat_id"] = egid
+                            await session.post(api_url, json=payload)
+                except: pass
+
         except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} bot tugmalar: {e}")
-        
-        # Qo'shimcha buyurtma guruhlarga akkaunt orqali
-        try:
-            with acc.get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
-                extra_groups = [row[0] for row in cursor.fetchall()]
-            
-            for gid in extra_groups:
-                try:
-                    user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"👫<b>ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI</b> <b>#{order_number}</b>"]
-                    msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-                    if username:
-                        msg_parts.append(f"🤙 @{username}")
-                    if text_content and text_content.strip():
-                        msg_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-                    if phones:
-                        pn = phones[0].replace(' ', '').replace('-', '')
-                        if pn.startswith('998'): pn = '+' + pn
-                        elif not pn.startswith('+998'): pn = '+998' + pn
-                        msg_parts.append(f"📞 {pn}")
-                    elif sender and hasattr(sender, 'phone') and sender.phone:
-                        msg_parts.append(f"📞 +{sender.phone}")
-                    cap = "\n\n".join(msg_parts)
-                    
-                    if sender:
-                        try:
-                            photos = await event.client.get_profile_photos(sender)
-                            if photos:
-                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
-                            else:
-                                await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                        except:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                    else:
-                        await event.client.send_message(entity=gid, message=cap, parse_mode='html')
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
-        except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruhlar: {e}")
+            logger.error(f"Akkaunt #{acc.profile_id} bot yuborish: {e}")
     
     return message_handler
 
@@ -1689,7 +1837,7 @@ async def run_account(c, acc: AccountConfig):
         raise RuntimeError(f"Akkaunt #{acc.profile_id} avtorizatsiya qilinmagan: {acc.phone}")
     me = await c.get_me()
     profile_name = f"@{me.username}" if me.username else f"+{me.phone}" if me.phone else str(me.id)
-    print(f"  ✅ Akkaunt #{acc.profile_id} ulandi: {profile_name}")
+    print(f"  {G}✅ Akkaunt #{acc.profile_id} ulandi: {profile_name} {W}")
     print(f"     📤 Buyurtma guruhi: {acc.order_group_id}")
     print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
     print(f"     💾 Baza: {acc.db_file}")
@@ -1698,6 +1846,34 @@ async def run_account(c, acc: AccountConfig):
     register_account_commands(c, acc)
     await c.run_until_disconnected()
 
+
+async def poll_pending_messages(clients):
+    while True:
+        try:
+            with get_main_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''CREATE TABLE IF NOT EXISTS pending_userbot_messages (
+                                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                  chat_id INTEGER,
+                                  message TEXT
+                                  )''')
+                cursor.execute("SELECT id, chat_id, message FROM pending_userbot_messages")
+                rows = cursor.fetchall()
+                for row in rows:
+                    msg_id, chat_id, text = row
+                    if clients:
+                        try:
+                            # Send message using the first client
+                            client = clients[0]
+                            await client.send_message(entity=chat_id, message=text, parse_mode='html')
+                        except Exception as e:
+                            logger.error(f"Pending send error: {e}")
+                        finally:
+                            cursor.execute("DELETE FROM pending_userbot_messages WHERE id = ?", (msg_id,))
+                            conn.commit()
+        except Exception as e:
+            pass
+        await asyncio.sleep(2)
 
 async def main():
     bot_username = await get_bot_username()
@@ -1728,7 +1904,7 @@ async def main():
     try:
         if profiles:
             print(f"\n👤 {len(profiles)} ta akkaunt yuklandi")
-            print("=" * 60)
+            print(f"{B}{"=" * 60}{W}")
             
             accounts = []
             for pid, session_name, phone in profiles:
@@ -1737,11 +1913,11 @@ async def main():
                 c = TelegramClient(session_name, API_ID, API_HASH)
                 accounts.append((c, acc))
             
-            print("✅ USERBOT ISHGA TUSHDI! (Ko'p akkaunt rejimi)")
-            print("=" * 60)
+            print(f"{G}✅ USERBOT ISHGA TUSHDI! (Ko'p akkaunt rejimi){W} {W}")
+            print(f"{B}{"=" * 60}{W}")
             for c, acc in accounts:
-                print(f"  📱 Akkaunt #{acc.profile_id}: {acc.phone or acc.session_name}")
-                print(f"     📤 Buyurtma: {acc.order_group_id}")
+                print(f"  📱 {Y}Akkaunt #{acc.profile_id}{W}: {G}{acc.phone or acc.session_name}{W}")
+                print(f"     📤 Buyurtma: {B}{acc.order_group_id}{W}")
                 print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
                 print(f"     💾 Baza: {acc.db_file}")
             print("=" * 60 + "\n")
@@ -1752,9 +1928,11 @@ async def main():
                     await run_account(c, acc)
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} xatolik: {e}")
-                    print(f"❌ Akkaunt #{acc.profile_id}: {e}")
+                    print(f"{R}❌ Akkaunt #{acc.profile_id}: {e} {W}")
             
-            await asyncio.gather(*[run_one(i) for i in range(len(accounts))])
+            tasks = [run_one(i) for i in range(len(accounts))]
+            tasks.append(poll_pending_messages([c for c, acc in accounts]))
+            await asyncio.gather(*tasks)
         else:
             # Legacy: bitta userbot sessiya
             await client.connect()
@@ -1784,11 +1962,12 @@ async def main():
             register_account_handlers(client, legacy_acc)
             register_account_commands(client, legacy_acc)
             
-            print("\n" + "=" * 60)
-            print("✅ USERBOT ISHGA TUSHDI! (Bitta akkaunt)")
-            print("=" * 60)
+            print(f"{B}\n" + "=" * 60 + W)
+            print(f"{G}✅ USERBOT ISHGA TUSHDI! (Bitta akkaunt){W} {W}")
+            print(f"{B}{"=" * 60}{W}")
             print(f"📊 Guruhlar: {len(legacy_groups)} | Buyurtma: {DEFAULT_ORDER_GROUP_ID}")
             print("=" * 60 + "\n")
+            asyncio.create_task(poll_pending_messages([client]))
             await client.run_until_disconnected()
     except Exception as e:
         logger.critical(f"KRITIK XATOLIK: {e}")

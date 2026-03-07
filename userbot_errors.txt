@@ -1,2 +1,274 @@
+Akkaunt #2 xatolik: database is locked
+Akkaunt #2 xatolik: database is locked
+Akkaunt #3 xatolik: database is locked
+Akkaunt #3 xatolik: database is locked
+Akkaunt #2 xatolik: database is locked
+Akkaunt #2 xatolik: database is locked
+Akkaunt #3 xatolik: database is locked
+Akkaunt #3 xatolik: database is locked
+Akkaunt #2 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+Akkaunt #2 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+Akkaunt #3 xatolik: database is locked
+Akkaunt #3 xatolik: database is locked
+Akkaunt #2 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+Akkaunt #2 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+Akkaunt #3 xatolik: database is locked
+Akkaunt #3 xatolik: database is locked
+Akkaunt #2 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+Akkaunt #2 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by InvokeWithLayerRequest(InitConnectionRequest(GetConfigRequest)))
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Main DB error: no such table: keywords
+Main DB error: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+Keywords yuklash xatolik: no such table: keywords
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Akkaunt #3 reklama @vijdontaxireklama: name 'url' is not defined
+Akkaunt #3 reklama @vijdontaxireklama: name 'url' is not defined
+Akkaunt #3 reklama @iymontaxi: name 'url' is not defined
+Akkaunt #3 reklama @iymontaxi: name 'url' is not defined
+Akkaunt #3 reklama @sobirtaxi_vodiy_voha: name 'url' is not defined
+Akkaunt #3 reklama @sobirtaxi_vodiy_voha: name 'url' is not defined
+Akkaunt #3 reklama @iymontaxigroup: name 'url' is not defined
+Akkaunt #3 reklama @iymontaxigroup: name 'url' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Akkaunt #0 tugmalar: 400
+Akkaunt #0 tugmalar: 400
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Bot yuborish xatolik: name 'bot' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 bot tugmalar: name 'rror' is not defined
+Akkaunt #3 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by GetDifferenceRequest)
+Akkaunt #3 xatolik: The authorization key (session file) was used under two different IP addresses simultaneously, and can no longer be used. Use the same session exclusively, or use different sessions (caused by GetDifferenceRequest)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Akkaunt #0 bot yuborish: name 'user_bio' is not defined
+Akkaunt #0 bot yuborish: name 'user_bio' is not defined
+Akkaunt #0 bot yuborish: name 'user_bio' is not defined
+Akkaunt #0 bot yuborish: name 'user_bio' is not defined
+Bot yuborish xatolik status: 400. Fallback to account.
+Bot yuborish xatolik status: 400. Fallback to account.
+Akkaunt #0 bot yuborish: name 'user_bio' is not defined
+Akkaunt #0 bot yuborish: name 'user_bio' is not defined
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Bot yuborish xatolik status: 400. Fallback to account.
+Bot yuborish xatolik status: 400. Fallback to account.
+Bot yuborish xatolik status: 400. Fallback to account.
+Bot yuborish xatolik status: 400. Fallback to account.
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+Bot yuborish xatolik status: 400, detail: {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}. Fallback to account.
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Akkaunt #0 bot yuborish: cannot access local variable 'user_name' where it is not associated with a value
+Akkaunt #0 bot yuborish: cannot access local variable 'user_name' where it is not associated with a value
+Akkaunt #0 bot yuborish: cannot access local variable 'user_name' where it is not associated with a value
+Akkaunt #0 bot yuborish: cannot access local variable 'user_name' where it is not associated with a value
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: no such column: bio
+Akkaunt #0 DB error: table users has no column named bio
+Akkaunt #0 DB error: table users has no column named bio
+Akkaunt #0 zakaz saqlash: table users has no column named bio
+Akkaunt #0 zakaz saqlash: table users has no column named bio
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Bot yuborish xatolik: Cannot send requests while disconnected
+Bot yuborish xatolik: Cannot send requests while disconnected
+Akkaunt #0 bot yuborish: Cannot send requests while disconnected
+Akkaunt #0 bot yuborish: Cannot send requests while disconnected
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: database is locked
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
 KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
 KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
