@@ -182,7 +182,8 @@ def init_keywords_db():
             ("@vijdontaxireklama", "Vijdon Taxi Reklama"),
             ("@iymontaxi", "Iymon Taxi"),
             ("@sobirtaxi_vodiy_voha", "Sobir Taxi"),
-            ("@iymontaxigroup", "Iymon Taxi Group")
+            ("@iymontaxigroup", "Iymon Taxi Group"),
+            ("@namangan_toshkent_namangan_vijdo", "Namangan Toshkent Namangan Vijdon")
         ]
         for identifier, name in default_reklama:
             cursor.execute('INSERT OR IGNORE INTO reklama_groups (group_identifier, group_name) VALUES (?, ?)', (identifier, name))

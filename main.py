@@ -90,7 +90,7 @@ class AccountConfig:
         self.db_file = f'zakazlar_account{profile_id}.db'
         self.order_group_id = DEFAULT_ORDER_GROUP_ID
         self.monitored_groups = []
-        self.reklama_groups = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]
+        self.reklama_groups = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup", "@namangan_toshkent_namangan_vijdo"]
         self.bot_username = "vijdonuserbot"
         self.keywords = {"driver": [], "passenger": []}
         self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
@@ -447,7 +447,7 @@ class AccountConfig:
         self.db_file = f'zakazlar_account{profile_id}.db'
         self.order_group_id = DEFAULT_ORDER_GROUP_ID
         self.monitored_groups = []
-        self.reklama_groups = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]
+        self.reklama_groups = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup", "@namangan_toshkent_namangan_vijdo"]
         self.bot_username = "vijdonuserbot"
         self.keywords = {"driver": [], "passenger": []}
         self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
