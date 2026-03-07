@@ -315,17 +315,16 @@ def reklama_matndan_olib_tashlash(text):
     if not text or not text.strip():
         return text
     t = text
-    t = re.sub(r'\+998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
-    t = re.sub(r'998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
-    t = re.sub(r'\b9\d{8}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{3}\s+\d{4}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{7}\b', '', t)
-    t = re.sub(r'\b9\d\s*[-]?\s*\d{3}\s*[-]?\s*\d{2}\s*[-]?\s*\d{2}\b', '', t)
-    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{4}\b', '', t)
-    t = re.sub(r'\b\d{3}\s+\d{2}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\d{2}[\s\-]\d{3}[\s\-]\d{2}[\s\-]\d{2}', '', t)
+    # Uzbek phone formatting
+    # +998... yoki 998... formatlar
+    t = re.sub(r'(?:\+998|998)?[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
+    t = re.sub(r'(?:\+998|998)?[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{4}', '', t)
+    
+    # 9-xonali va har xil probellar bilan raqamlar
+    t = re.sub(r'\b\d{9}\b', '', t)
+    t = re.sub(r'\b\d{2}[\s\-]\d{3}[\s\-]\d{2}[\s\-]\d{2}\b', '', t)
+    t = re.sub(r'\b\d{2}[\s\-]\d{3}[\s\-]\d{4}\b', '', t)
+    
     t = re.sub(r'[Tt]el\.?\s*:?\s*', '', t)
     t = re.sub(r'[Tt]elefon\.?\s*:?\s*', '', t)
     t = re.sub(r'[Rr]aqam\.?\s*:?\s*', '', t)
