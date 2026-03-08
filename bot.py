@@ -966,7 +966,8 @@ async def send_taxi_order_simple(message, user, phone):
         f"   {user_data['from_city']} ➡️ {user_data['to_city']}\n\n"
         f'👥 <b>Yo\'lovchilar:</b> {user_data.get("passenger_count", "Noma'lum")}\n'
         f'🕐 <b>Vaqt:</b> {user_data.get("departure_time", "Noma'lum")}\n\n'
-        f"<b>Mijoz:</b> {user_name}"
+        f"<b>Mijoz:</b> {user_name}\n\n"
+        f"<a href='https://t.me/c/{str(ORDER_GROUP_ID)[4:]}/{{message_id}}'>📨 Habarni ko'rish</a>"
     )
     
     # Tugmalarni tayyorlash
@@ -983,9 +984,33 @@ async def send_taxi_order_simple(message, user, phone):
     
     # Asosiy guruhga yuborish - yagona xabar
     try:
-        await bot.send_message(
+        # Avval xabarni havola'siz yuborish
+        order_message_without_link = (
+            f"🚕 <b>ZAKAZ #{order_number}</b>\n"
+            f"{'='*25}\n\n"
+            f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
+            f"📞 <b>Telefon:</b> {formatted_phone}\n\n"
+            f"🚗 <b>Yo'nalish:</b>\n"
+            f"   {user_data['from_city']} ➡️ {user_data['to_city']}\n\n"
+            f'👥 <b>Yo\'lovchilar:</b> {user_data.get("passenger_count", "Noma'lum")}\n'
+            f'🕐 <b>Vaqt:</b> {user_data.get("departure_time", "Noma'lum")}\n\n'
+            f"<b>Mijoz:</b> {user_name}"
+        )
+        
+        sent_message = await bot.send_message(
             chat_id=ORDER_GROUP_ID,
-            text=order_message,
+            text=order_message_without_link,
+            parse_mode='HTML',
+            reply_markup=order_keyboard
+        )
+        message_id = sent_message.message_id
+        
+        # Xabarni havola'si bilan edit qilish
+        order_message_with_link = order_message_without_link + f"\n\n<a href='https://t.me/c/{str(ORDER_GROUP_ID)[4:]}/{message_id}'>📨 Habarni ko'rish</a>"
+        await bot.edit_message_text(
+            chat_id=ORDER_GROUP_ID,
+            message_id=message_id,
+            text=order_message_with_link,
             parse_mode='HTML',
             reply_markup=order_keyboard
         )
@@ -1081,10 +1106,29 @@ async def send_taxi_order(message, user, phone):
     
     # Asosiy guruhga yuborish
     try:
-        # Yagona xabar - barcha ma'lumotlar bilan
-        await bot.send_message(
+        # Yagona xabar - barcha ma'lumotlar bilan (havola'siz)
+        order_message_without_link = (
+            f"🚕 <b>YANGI ZAKAZ</b>\n"
+            f"{'='*25}\n\n"
+            f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
+            f"📞 <b>Telefon:</b> {formatted_phone}\n"
+            f"🎯 <b>Qayerga:</b> {user_data['destination']}"
+        )
+        
+        sent_message = await bot.send_message(
             chat_id=ORDER_GROUP_ID,
-            text=order_message,
+            text=order_message_without_link,
+            parse_mode='HTML',
+            reply_markup=order_keyboard
+        )
+        message_id = sent_message.message_id
+        
+        # Xabarni havola'si bilan edit qilish
+        order_message_with_link = order_message_without_link + f"\n\n<a href='https://t.me/c/{str(ORDER_GROUP_ID)[4:]}/{message_id}'>📨 Habarni ko'rish</a>"
+        await bot.edit_message_text(
+            chat_id=ORDER_GROUP_ID,
+            message_id=message_id,
+            text=order_message_with_link,
             parse_mode='HTML',
             reply_markup=order_keyboard
         )
@@ -1108,7 +1152,7 @@ async def send_taxi_order(message, user, phone):
                     # Matn xabari
                     await bot.send_message(
                         chat_id=group_id,
-                        text=order_message,
+                        text=order_message_with_link,
                         parse_mode='HTML',
                         reply_markup=order_keyboard
                     )
