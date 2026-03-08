@@ -1,0 +1,4 @@
+{
+  "summary": "Added automatic user blocking feature to main.py. When a user sends a message containing 'bloklash' (block in Uzbek) or 'блокла' (Russian), the bot automatically blocks that user and prevents them from placing new orders. The blocking is done at the message processing stage before the order is saved, and logs the action for audit purposes.",
+  "current_status": "Blocking feature implemented. Users who send messages with 'bloklash' keyword will be automatically blocked and unable to place orders. The feature works across all monitored groups for each account."
+}

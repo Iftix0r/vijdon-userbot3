@@ -1,0 +1,4 @@
+{
+  "summary": "Bot orqali yuborilgan xabardan havola o'chirildi. Faqat akkaunt orqali yuborilgan zakazda havola bo'ladi. Bot.py'da havola o'chirildi. Main.py'da havola qo'shish uchun tayyorlanmoqda. Commit b7a8618 GitHub'da.",
+  "current_status": "Bot xabari: havola yo'q. Akkaunt xabari: havola bo'ladi (main.py'da qo'shiladi). Bot.py finallashtirildi."
+}

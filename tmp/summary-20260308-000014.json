@@ -1,0 +1,4 @@
+{
+  "summary": "Xabar sozlamalari feature'i muvaffaqiyatli qo'shildi. Admin paneldan buyurtma xabari header'i o'zgartirilishi mumkin. Settings jadvalini database'ga qo'shildi va zakazlar.db'ni o'zgartirildi. Bot.py va main.py'da kerakli handler'lar va funksiyalar qo'shildi.",
+  "current_status": "Feature tayyor. Admin panelda 'Xabar sozlamalari' tugmasi mavjud. Buyurtma xabari header'i database'dan o'qiladi va admin tomonidan o'zgartirilishi mumkin. Commit 935baee GitHub'da."
+}

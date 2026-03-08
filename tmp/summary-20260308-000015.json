@@ -1,0 +1,4 @@
+{
+  "summary": "Xabar sozlamalariga kirish muammosi tuzatildi. message_settings_menu_handler'ga debug logging qo'shildi. Admin paneldan 'Xabar sozlamalari' tugmasiga bosilganda handler'ni tekshirish uchun log qo'shildi.",
+  "current_status": "Xabar sozlamalari feature'i debug mode'da. Commit 9213494 GitHub'da. Admin paneldan 'Xabar sozlamalari' tugmasiga bosilganda log chiqadi."
+}

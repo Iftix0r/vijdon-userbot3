@@ -1,0 +1,4 @@
+{
+  "summary": "Main.py faylida akkaunt orqali yuborilgan zakazda havola qo'shildi. Xabar yuborilgandan keyin message ID'sini olish va edit qilish orqali havola qo'shildi. Bot.py'da havola yo'q, faqat main.py'da havola bo'ladi. Commit d90c20f GitHub'da.",
+  "current_status": "Bot xabari: havola yo'q. Akkaunt xabari: havola mavjud (pastda). Ikkala yuborish usuli ham finallashtirildi."
+}

@@ -1,0 +1,4 @@
+{
+  "summary": "Zakaz xabari format'i finallashtirildi. Havola yuqorida ko'rinadi. Xabar format: 📨 Habarni ko'rish (yuqorida) / 🚕 ZAKAZ #123 / 👤 Ism / 📞 Telefon / 👥 Yo'lovchilar. Commit a2a75e7 GitHub'da.",
+  "current_status": "Zakaz xabari format'i tayyor. Havola yuqorida, asosiy ma'lumot pastda. Bot.py va main.py'da xabar sozlamalari feature'i mavjud."
+}

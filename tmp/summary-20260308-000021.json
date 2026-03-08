@@ -1,0 +1,4 @@
+{
+  "summary": "Zakaz xabari format'i finallashtirildi. Havola birinchi qatorida, zakaz nomeri bilan bir qatorida ko'rinadi. Format: 🚕 ZAKAZ #123 | 📨 Habarni ko'rish / 👤 Ism / 📞 Telefon / 👥 Yo'lovchilar. Commit ccb115d GitHub'da.",
+  "current_status": "Zakaz xabari format'i tayyor. Havola birinchi qatorida inline ko'rinadi. Bot.py'da ikkala buyurtma xabari yuborish funksiyasida o'zgartirildi."
+}

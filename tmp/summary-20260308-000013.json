@@ -1,0 +1,4 @@
+{
+  "summary": "Admin panelga xabar sozlamalari imkoni qo'shildi. Bot.py faylida 'Xabar sozlamalari' tugmasi va handler'lari qo'shildi. Main.py faylida get_order_message_header() funksiyasi qo'shildi va buyurtma xabari header'i database'dan o'qiladi. Settings jadvalini database'ga qo'shish uchun zakazlar.db'ni o'zgartirildi.",
+  "current_status": "Admin paneldan buyurtma xabari header'i o'zgartirilishi mumkin. Commit 935baee GitHub'da. Bot ishga tushadi, lekin asyncio event loop xatosi bor (bu main.py va bot.py'ning parallel ishga tushirilishidan kelib chiqadi)."
+}

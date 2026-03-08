@@ -1,0 +1,4 @@
+{
+  "summary": "Zakaz xabari format'i finallashtirildi. Havola matnning ichida, yo'lovchilar/destination qatorining oxirida ko'rinadi. Format: 🚕 ZAKAZ #123 / 👤 Ism / 📞 Telefon / 👥 Yo'lovchilar | 📨 Habarni ko'rish. Commit 4e5a850 GitHub'da.",
+  "current_status": "Zakaz xabari format'i tayyor. Havola matnning ichida inline ko'rinadi. Bot.py'da ikkala buyurtma xabari yuborish funksiyasida o'zgartirildi."
+}

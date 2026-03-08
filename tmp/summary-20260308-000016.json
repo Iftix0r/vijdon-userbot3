@@ -1,0 +1,4 @@
+{
+  "summary": "Xabar sozlamalari feature'i qo'shildi va debug logging qo'shildi. Admin panelda 'Xabar sozlamalari' tugmasi mavjud. Buyurtma xabari header'i database'dan o'qiladi va admin tomonidan o'zgartirilishi mumkin. Commit 9213494 GitHub'da.",
+  "current_status": "Feature tayyor. Admin paneldan xabar sozlamalariga kirish uchun debug logging qo'shildi. Bot.py va main.py'da kerakli handler'lar va funksiyalar mavjud."
+}

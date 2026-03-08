@@ -369,6 +369,32 @@ async def start_handler(message: types.Message):
                 await message.answer("❌ Buyurtma topilmadi.")
         except Exception as e:
             logger.error(f"Start deep link error: {e}")
+            return
+
+    # Bloklash (deep link orqali)
+    if len(args) > 1 and args[1].startswith('block_'):
+        if not is_admin(message.from_user.id):
+            await message.answer(
+                "😂 <b>Siz admin emassiz-ku!</b>\n\n"
+                "Uyalmaysizmi birovni bloklashga urinishga? 🤡\n"
+                "Faqat haqiqiy adminlargina bu sehrli kuchga ega! ✨",
+                parse_mode='HTML'
+            )
+            return
+        try:
+            user_id_to_block = int(args[1].replace('block_', ''))
+            block_user(user_id_to_block)
+            await message.answer(
+                f"🚫 <b>Foydalanuvchi muvaffaqiyatli bloklandi!</b>\n\n"
+                f"🆔 ID: <code>{user_id_to_block}</code>\n\n"
+                f"Endi bu foydalanuvchidan buyurtmalar kelmaydi.",
+                parse_mode='HTML'
+            )
+            return
+        except Exception as e:
+            logger.error(f"Deep link block error: {e}")
+            await message.answer(f"❌ Bloklashda xatolik: {e}")
+            return
 
     if is_admin(message.from_user.id):
         await message.answer(
@@ -1591,6 +1617,34 @@ async def handle_text_message(message: types.Message):
                 await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
             del user_states[user_id]
             return
+        elif user_states[user_id] == 'waiting_order_header':
+            if not is_admin(user_id):
+                await message.answer("❌ Ruxsat yo'q!")
+                return
+            new_header = message.text.strip()
+            if len(new_header) > 200:
+                await message.answer("❌ Xabar juda uzun! 200 belgidan kam bo'lishi kerak.")
+                return
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO settings (setting_key, setting_value)
+                        VALUES (?, ?)
+                    ''', ('order_message_header', new_header))
+                    conn.commit()
+                del user_states[user_id]
+                await message.answer(
+                    f"✅ <b>Buyurtma xabari muvaffaqiyatli o'zgartirildi!</b>\n\n"
+                    f"<b>Yangi xabar:</b>\n"
+                    f"<code>{new_header}</code>",
+                    parse_mode='HTML'
+                )
+                logger.info(f"Admin {user_id} buyurtma xabarini o'zgartirdi")
+            except Exception as e:
+                await message.answer(f"❌ Xatolik: {e}")
+                logger.error(f"Buyurtma xabari o'zgartirilishda xatolik: {e}")
+            return
     
     # Qidiruv funksiyasi - faqat admin uchun
     if is_admin(message.from_user.id):
@@ -2304,28 +2358,6 @@ async def send_demo_orders():
     print(f"✅ {successful_orders}/10 demo zakaz muvaffaqiyatli yuborildi")
     logger.info(f"Demo zakazlar yuborish tugadi: {successful_orders}/10")
 
-async def main():
-    print("🤖 Bot ishga tushmoqda...")
-    
-    # Ma'lumotlar bazasini ishga tushirish
-    init_keywords_db()
-    print("✅ Keywords bazasi tayyor")
-    
-    # Main.py ni avtomatik ishga tushirish
-    import subprocess
-    import sys
-    subprocess.Popen([sys.executable, 'main.py'])
-    print("📱 Userbot ham ishga tushdi")
-    
-    try:
-        await dp.start_polling(bot)
-    finally:
-        pass
-
-if __name__ == "__main__":
-    asyncio.run(main())
-
-
 # ========== XABAR SOZLAMALARI ==========
 
 @dp.callback_query(lambda c: c.data == "message_settings_menu")
@@ -2375,35 +2407,25 @@ async def edit_order_header_handler(callback: types.CallbackQuery):
         parse_mode='HTML'
     )
 
-@dp.message(lambda message: user_states.get(message.from_user.id) == 'waiting_order_header')
-async def save_order_header_handler(message: types.Message):
-    if not is_admin(message.from_user.id):
-        await message.answer("❌ Ruxsat yo'q!")
-        return
+async def main():
+    print("🤖 Bot ishga tushmoqda...")
     
-    new_header = message.text.strip()
+    # Ma'lumotlar bazasini ishga tushirish
+    init_keywords_db()
+    print("✅ Keywords bazasi tayyor")
     
-    if len(new_header) > 200:
-        await message.answer("❌ Xabar juda uzun! 200 belgidan kam bo'lishi kerak.")
-        return
+    # Main.py ni avtomatik ishga tushirish
+    import subprocess
+    import sys
+    subprocess.Popen([sys.executable, 'main.py'])
+    print("📱 Userbot ham ishga tushdi")
     
     try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT OR REPLACE INTO settings (setting_key, setting_value)
-                VALUES (?, ?)
-            ''', ('order_message_header', new_header))
-            conn.commit()
-        
-        user_states.pop(message.from_user.id, None)
-        await message.answer(
-            f"✅ <b>Buyurtma xabari muvaffaqiyatli o'zgartirildi!</b>\n\n"
-            f"<b>Yangi xabar:</b>\n"
-            f"<code>{new_header}</code>",
-            parse_mode='HTML'
-        )
-        logger.info(f"Admin {message.from_user.id} buyurtma xabarini o'zgartirdi")
-    except Exception as e:
-        await message.answer(f"❌ Xatolik: {e}")
-        logger.error(f"Buyurtma xabari o'zgartirilishda xatolik: {e}")
+        await dp.start_polling(bot)
+    finally:
+        pass
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+

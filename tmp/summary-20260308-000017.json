@@ -1,0 +1,4 @@
+{
+  "summary": "Buyurtma xabarida 'Habarni ko'rish' havola'si qo'shildi. Xabar yuborilgandan keyin message ID'sini olish va xabarni edit qilish orqali havola qo'shildi. Ikkala buyurtma xabari yuborish funksiyasida (send_taxi_order_simple va send_taxi_order) ham qo'shildi. Commit 4426c36 GitHub'da.",
+  "current_status": "Buyurtma xabarida pastda 'Habarni ko'rish' havola'si mavjud. Foydalanuvchilar bosganda guruhda yuborilgan asl xabarning havolasiga o'tadi."
+}
