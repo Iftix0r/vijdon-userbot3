@@ -1592,6 +1592,29 @@ async def handle_text_message(message: types.Message):
                 await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
             del user_states[user_id]
             return
+        elif user_states[user_id] == 'waiting_add_reklama_group_id':
+            reklama_group_username = message.text.strip()
+            if not reklama_group_username.startswith('@') and not reklama_group_username.startswith('-100'):
+                await message.answer("❌ Noto'g'ri format! @username yoki -100 toifasidagi ID kiriting.")
+            else:
+                reklama_groups = load_reklama_groups()
+                if reklama_group_username not in reklama_groups:
+                    save_reklama_group(reklama_group_username)
+                    await message.answer(f"✅ Reklama guruhi qo'shildi: {reklama_group_username}")
+                else:
+                    await message.answer(f"⚠️ Reklama guruhi allaqachon mavjud: {reklama_group_username}")
+            del user_states[user_id]
+            return
+        elif user_states[user_id] == 'waiting_remove_reklama_group_id':
+            reklama_group_username = message.text.strip()
+            reklama_groups = load_reklama_groups()
+            if reklama_group_username in reklama_groups:
+                remove_reklama_group(reklama_group_username)
+                await message.answer(f"❌ Reklama guruhi o'chirildi: {reklama_group_username}")
+            else:
+                await message.answer(f"⚠️ Reklama guruhi topilmadi: {reklama_group_username}")
+            del user_states[user_id]
+            return
         elif user_states[user_id] == 'waiting_search_query':
             await search_user_func(message)
             del user_states[user_id]
@@ -1832,6 +1855,38 @@ def remove_order_group(group_id):
             logger.info(f"Order group removed: {group_id}")
     except Exception as e:
         logger.error(f"Error removing order group: {e}")
+        raise
+
+def load_reklama_groups():
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT group_id FROM reklama_groups')
+            groups = [row[0] for row in cursor.fetchall()]
+        return groups
+    except:
+        return []
+
+def save_reklama_group(group_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT OR REPLACE INTO reklama_groups (group_id) VALUES (?)', (group_id,))
+            conn.commit()
+            logger.info(f"Reklama group added: {group_id}")
+    except Exception as e:
+        logger.error(f"Error saving reklama group: {e}")
+        raise
+
+def remove_reklama_group(group_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM reklama_groups WHERE group_id = ?', (group_id,))
+            conn.commit()
+            logger.info(f"Reklama group removed: {group_id}")
+    except Exception as e:
+        logger.error(f"Error removing reklama group: {e}")
         raise
 
 def block_user(user_id):
@@ -2187,6 +2242,25 @@ async def add_order_group_prompt_handler(callback: types.CallbackQuery):
 async def remove_order_group_prompt_handler(callback: types.CallbackQuery):
     user_states[callback.from_user.id] = 'waiting_remove_order_group_id'
     await callback.message.edit_text("O'chirish uchun buyurtma guruhi ID sini yuboring:\nMisol: -1001234567890")
+
+@dp.callback_query(lambda c: c.data == "list_reklama_groups")
+async def list_reklama_groups_handler(callback: types.CallbackQuery):
+    reklama_groups = load_reklama_groups()
+    if reklama_groups:
+        groups_text = "📢 Reklama guruhlari (Haydovchilar):\n" + "\n".join([f"• {g}" for g in reklama_groups])
+    else:
+        groups_text = "📭 Reklama guruhlari yo'q"
+    await callback.message.edit_text(groups_text)
+
+@dp.callback_query(lambda c: c.data == "add_reklama_group_prompt")
+async def add_reklama_group_prompt_handler(callback: types.CallbackQuery):
+    user_states[callback.from_user.id] = 'waiting_add_reklama_group_id'
+    await callback.message.edit_text("Reklama guruhi Username yoki ID sini yuboring:\nMisol: @vijdontaxireklama yoki -1001234567890")
+
+@dp.callback_query(lambda c: c.data == "remove_reklama_group_prompt")
+async def remove_reklama_group_prompt_handler(callback: types.CallbackQuery):
+    user_states[callback.from_user.id] = 'waiting_remove_reklama_group_id'
+    await callback.message.edit_text("O'chirish uchun reklama guruhi Username yoki ID sini yuboring:\nMisol: @vijdontaxireklama")
 
 @dp.callback_query(lambda c: c.data == "add_admin_prompt")
 async def add_admin_prompt_handler(callback: types.CallbackQuery):
