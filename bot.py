@@ -89,6 +89,12 @@ def init_keywords_db():
         )
     ''')
     cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reklama_groups (
+            group_id TEXT PRIMARY KEY,
+            added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS blocked_users (
             user_id INTEGER PRIMARY KEY,
             blocked_date DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -1868,7 +1874,10 @@ def groups_menu():
         inline_keyboard=[
             [InlineKeyboardButton(text="📤 Buyurtma guruhlari", callback_data="list_order_groups")],
             [InlineKeyboardButton(text="➕ Buyurtma guruh qo'shish", callback_data="add_order_group_prompt")],
-            [InlineKeyboardButton(text="➖ Buyurtma guruh o'chirish", callback_data="remove_order_group_prompt")],
+            [InlineKeyboardButton(text="➖ Buyurtma o'chirish", callback_data="remove_order_group_prompt")],
+            [InlineKeyboardButton(text="📢 Reklama guruhlari (Haydovchilar)", callback_data="list_reklama_groups")],
+            [InlineKeyboardButton(text="➕ Reklama guruh qo'shish", callback_data="add_reklama_group_prompt")],
+            [InlineKeyboardButton(text="➖ Reklama guruh o'chirish", callback_data="remove_reklama_group_prompt")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
         ]
     )

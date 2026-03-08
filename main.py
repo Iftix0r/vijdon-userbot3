@@ -606,28 +606,28 @@ async def get_bot_username():
         return 'vijdonuserbot'
 
 def reklama_matndan_olib_tashlash(text):
-    """Reklama xabaridan telefon raqamlar, havolalar va @username ni olib tashlash"""
+    """Reklama xabaridan telefon raqamlar, havolalar, @username va aloqa ma'lumotlarini butunlay olib tashlash"""
     if not text or not text.strip():
         return text
     t = text
-    t = re.sub(r'\+998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
-    t = re.sub(r'998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
-    t = re.sub(r'\b9\d{8}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{3}\s+\d{4}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{7}\b', '', t)
-    t = re.sub(r'\b9\d\s*[-]?\s*\d{3}\s*[-]?\s*\d{2}\s*[-]?\s*\d{2}\b', '', t)
-    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{4}\b', '', t)
-    t = re.sub(r'\b\d{3}\s+\d{2}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\d{2}[\s\-]\d{3}[\s\-]\d{2}[\s\-]\d{2}', '', t)
-    t = re.sub(r'[Tt]el\.?\s*:?\s*', '', t)
-    t = re.sub(r'[Tt]elefon\.?\s*:?\s*', '', t)
-    t = re.sub(r'[Rr]aqam\.?\s*:?\s*', '', t)
+    # 1. Telefon raqamlar
+    t = re.sub(r'\+?[998]*[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
+    t = re.sub(r'\b(?:90|91|93|94|95|97|98|99|88|33|77)\s*\d{3}\s*\d{2}\s*\d{2}\b', '', t)
+    t = re.sub(r'\b\d{2}[\s\.\-]\d{3}[\s\.\-]\d{2}[\s\.\-]\d{2}\b', '', t)
+    t = re.sub(r'\b(?:90|91|93|94|95|97|98|99|88|33|77)\d{7}\b', '', t)
+    t = re.sub(r'\b\d{9}\b', '', t)
+    t = re.sub(r'\b\d{7}\b', '', t)
+    
+    # 2. Maxsus so'zlar
+    t = re.sub(r'([Tt]el\.?|[Tt]elefon\.?|[Rr]aqam\.?|[Ll]ichka[sg]a?|[Mm]urojaat|[Mm]uchi)\s*:?\s*', '', t, flags=re.IGNORECASE)
+    
+    # 3. Havolalar va Usernamelar
     t = re.sub(r'https?://[^\s]+', '', t)
     t = re.sub(r't\.me/[^\s]+', '', t)
     t = re.sub(r'tg://[^\s]+', '', t)
     t = re.sub(r'@\w+', '', t)
+    
+    # 4. Ortiqcha bo'shliqlar
     return re.sub(r'\s+', ' ', t).strip()
 
 def get_order_message_header():
@@ -699,6 +699,12 @@ def init_main_database():
                 CREATE TABLE IF NOT EXISTS order_groups (
                     group_id INTEGER PRIMARY KEY,
                     group_name TEXT,
+                    added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS reklama_groups (
+                    group_id TEXT PRIMARY KEY,
                     added_date DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
@@ -979,11 +985,14 @@ def create_message_handler(acc: AccountConfig):
                 
                 # Reklama guruhlarga yuborish
                 try:
+                    # Yangilash (admin paneldan o'zgargan bo'lsa)
+                    acc._load_reklama_groups()
+                    
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
                     special_message = f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
                     if clean_text:
                         special_message += f"<i>{clean_text}</i>\n\n"
-                    special_message += f"<b>Buyurtmalar guruhga qo'shilish uchun 👇</b>"
+                    special_message += f"<b>Buyurtmalar guruhiga qo'shilish uchun 👇</b>"
                     
                     admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
                     special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
