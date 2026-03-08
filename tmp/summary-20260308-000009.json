@@ -1,0 +1,4 @@
+{
+  "summary": "Serverdagi vijdon-userbot3 loyihasida commit 44f5435 (2026-03-05 23:56:56) tekshirildi. Local va server ikkalasi ham 6 mart kechasi 6 martga o'tar vaqtdagi holatda synxronizatsiyalangan. Bot ishga tushirish uchun ./start.sh yoki pm2 start buyruqlari tayyor.",
+  "current_status": "Local va server: commit 44f5435 (5 mart kechasi 6 martga o'tar vaqt). Barcha botlar to'xtatilgan. Bot ishga tushirish uchun tayyor."
+}

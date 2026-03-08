@@ -1,0 +1,4 @@
+{
+  "summary": "Server encountered git merge conflict with untracked userbot_errors.txt file. User needs to remove or move the file, then pull latest changes which include bot-based order sending functionality.",
+  "current_status": "Server blocked from pulling updates due to untracked file conflict. Once resolved, bot will send orders via API instead of accounts."
+}

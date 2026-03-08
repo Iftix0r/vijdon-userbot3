@@ -130,6 +130,21 @@ def init_keywords_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            setting_key TEXT UNIQUE NOT NULL,
+            setting_value TEXT,
+            updated_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Default settings
+    cursor.execute('''
+        INSERT OR IGNORE INTO settings (setting_key, setting_value)
+        VALUES (?, ?)
+    ''', ('order_message_header', '🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>'))
+    
     # Default adminlarni qo'shish
     for admin_id in ADMIN_IDS:
         cursor.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (admin_id,))

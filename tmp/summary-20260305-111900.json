@@ -1,0 +1,4 @@
+{
+  "summary": "User clarified that start.sh runs the old bot version while python bot.py runs the new version. Reviewed start.sh script which uses either PM2 or screen to run bot.py. The script is correctly configured to run bot.py, so the version difference likely stems from git pull conflicts or different branches being checked out.",
+  "current_status": "Git merge conflict resolved (userbot_errors.txt). Bot can be started via start.sh (PM2/screen) or directly with python bot.py. Need to verify which version is currently checked out in git."
+}

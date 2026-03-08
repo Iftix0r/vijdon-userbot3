@@ -1,0 +1,4 @@
+{
+  "summary": "Foydalanuvchi bot'ni to'xtatish usulini so'radi. Bot'ni to'xtatish uchun ./stop.sh scriptini ishga tushirish kerak. Script PM2 yoki Screen dan foydalanishiga qarab avtomatik ravishda botni to'xtatadi.",
+  "current_status": "Loyiha 44f5435 commitida. Bot'ni to'xtatish uchun ./stop.sh buyrug'i tayyor."
+}

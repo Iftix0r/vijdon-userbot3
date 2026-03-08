@@ -1,0 +1,4 @@
+{
+  "summary": "Updated order message format to include full greeting: '🚕 ASSALOMU ALAYKUM HURMATLI VIJDON TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI! #{order_number}'. Changed in both main order group and additional order groups sending logic.",
+  "current_status": "Message format updated with full greeting. All code passes validation. Ready to commit and deploy to server."
+}

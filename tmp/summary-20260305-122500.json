@@ -1,0 +1,4 @@
+{
+  "summary": "Database locked error identified - timeout too short (30s) and no busy_timeout set. Need to increase timeout to 60s and add PRAGMA busy_timeout=60000. File has duplicate code sections (AccountConfig class appears twice). Need to clean up duplicates and update database connection settings.",
+  "current_status": "Database lock issue blocking order sending. File has structural issues with duplicate code. Need to fix database connection and remove duplicates."
+}

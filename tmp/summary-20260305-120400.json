@@ -1,0 +1,4 @@
+{
+  "summary": "Bot still showing old message format 'Assalomu alaykum hurmatli haydovchilar' on server. This indicates main.py wasn't pulled. User needs to run 'git pull' to fetch updated main.py, then 'pm2 restart vijdon-userbot' to apply changes.",
+  "current_status": "Server bot running old version. main.py update not yet applied. Need git pull and PM2 restart."
+}

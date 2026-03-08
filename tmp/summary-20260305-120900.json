@@ -1,0 +1,4 @@
+{
+  "summary": "Added block button to order messages in both main and additional order groups. Updated bot.py callback handler to accept both 'block_' and 'block_user_' formats. When admins click block button, user gets blocked and button disappears from message.",
+  "current_status": "Block functionality complete. Orders now have phone call, copy, and block buttons. Ready to commit and deploy."
+}

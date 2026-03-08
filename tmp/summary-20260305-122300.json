@@ -1,0 +1,4 @@
+{
+  "summary": "Identified issue: Userbot profiles not monitoring groups. Handler exists and auto-adds groups, but monitored_groups may be empty in account config files. Need to verify account_config_2.json and account_config_3.json contain monitored_groups list. If empty, profiles won't receive messages from groups.",
+  "current_status": "Bot running but userbot profiles not catching orders from groups. Need to check account config files and ensure monitored_groups are populated."
+}

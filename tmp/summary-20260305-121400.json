@@ -1,0 +1,4 @@
+{
+  "summary": "Removed photo sending from order messages. Updated both main order group and additional order groups to send only text with buttons, no profile photos. Simplified fallback logic to send text-only messages via account if bot fails.",
+  "current_status": "Order messages now text-only with buttons. No photos sent. All code passes validation. Ready to commit and deploy."
+}

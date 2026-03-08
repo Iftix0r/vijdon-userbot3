@@ -1,0 +1,4 @@
+{
+  "summary": "Critical errors found: 1) database is locked - WAL files need cleanup, 2) asyncio event loop error - Telethon connection issue. Need to: 1) Remove WAL files (zakazlar*.db-wal, zakazlar*.db-shm, zakazlar*.db-journal), 2) Fix Telethon client event loop handling in main.py.",
+  "current_status": "Bot crashing due to database lock and asyncio event loop errors. Need immediate fixes to database cleanup and Telethon client initialization."
+}

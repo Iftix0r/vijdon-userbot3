@@ -1,0 +1,4 @@
+{
+  "summary": "Added inline buttons to order messages sent via bot. Each message now includes two buttons: phone call button (with tel link) and copy button (for clipboard). Updated both main order group and additional order groups sending logic.",
+  "current_status": "Order messages now include interactive buttons for phone calls and copying. Ready to commit and deploy."
+}

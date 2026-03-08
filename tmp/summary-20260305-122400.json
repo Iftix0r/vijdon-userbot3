@@ -1,0 +1,4 @@
+{
+  "summary": "Found bot sending logic uses HTTP POST to Telegram API (aiohttp). Bot token is loaded from .env. Userbot catching messages and creating orders, but bot not sending to order group. Need to verify BOT_TOKEN in .env is valid and bot is member of order group (-1003734319958).",
+  "current_status": "Userbot working (catching messages, 155 groups monitored). Bot sending logic exists but not working - likely BOT_TOKEN issue or bot not in order group."
+}

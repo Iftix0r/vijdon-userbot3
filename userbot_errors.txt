@@ -1,0 +1,30 @@
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The key is not registered in the system (caused by GetDifferenceRequest)
+KRITIK XATOLIK: The key is not registered in the system (caused by GetDifferenceRequest)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Akkaunt #0 profil rasmi: Could not find the input entity for PeerUser(user_id=6396820407) (PeerUser). Please read https://docs.telethon.dev/en/stable/concepts/entities.html to find out more details.
+Akkaunt #0 profil rasmi: Could not find the input entity for PeerUser(user_id=6396820407) (PeerUser). Please read https://docs.telethon.dev/en/stable/concepts/entities.html to find out more details.
+Akkaunt #0 tugmalar: 400
+Akkaunt #0 tugmalar: 400
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Akkaunt #0 tugmalar: 400
+Akkaunt #0 tugmalar: 400
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+Main DB error: no such column: setting_value
+Main DB error: no such column: setting_value
+Akkaunt #0 tugmalar: 400
+Akkaunt #0 tugmalar: 400
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)
+KRITIK XATOLIK: The asyncio event loop must not change after connection (see the FAQ for details)

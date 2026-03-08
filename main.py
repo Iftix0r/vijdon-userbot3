@@ -616,6 +616,18 @@ def reklama_matndan_olib_tashlash(text):
     t = re.sub(r'@\w+', '', t)
     return re.sub(r'\s+', ' ', t).strip()
 
+def get_order_message_header():
+    """Database'dan buyurtma xabari header'ini o'qish"""
+    try:
+        with get_main_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT setting_value FROM settings WHERE setting_key = ?', 
+                         ('order_message_header',))
+            result = cursor.fetchone()
+            return result[0] if result else '🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>'
+    except:
+        return '🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>'
+
 def init_main_database():
     """Umumiy bazani yaratish (profiles, keywords, admins)"""
     try:
@@ -833,7 +845,8 @@ def create_message_handler(acc: AccountConfig):
         
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+            header = get_order_message_header()
+            message_parts = [f"{header} <b>#{order_number}</b>"]
             message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
             if username:
                 message_parts.append(f"🤙 @{username}")
@@ -1434,7 +1447,8 @@ def create_message_handler(acc: AccountConfig):
         
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            message_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+            header = get_order_message_header()
+            message_parts = [f"{header} <b>#{order_number}</b>"]
             message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
             if username:
                 message_parts.append(f"🤙 @{username}")

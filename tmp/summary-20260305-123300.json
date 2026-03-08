@@ -1,0 +1,4 @@
+{
+  "summary": "User reports that start.sh and stop.sh scripts are managing a different bot. Scripts look correct (they manage bot.py), but PM2 may have multiple processes. Need to check 'pm2 list' to see all running processes and clean up if needed.",
+  "current_status": "Scripts appear correct but may be conflicting with other PM2 processes. Need to verify PM2 process list and ensure only vijdon-userbot is running."
+}

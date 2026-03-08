@@ -1,0 +1,4 @@
+{
+  "summary": "Updated main.py to send orders via bot instead of account. Modified two locations where orders are sent to groups: main order group and additional order groups. Bot sends via bot.send_message(), with fallback to account send if bot fails. Code passes syntax validation.",
+  "current_status": "Orders now sent via bot API first, with account fallback. Ready to commit and deploy to server."
+}

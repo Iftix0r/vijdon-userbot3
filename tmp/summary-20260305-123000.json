@@ -1,0 +1,4 @@
+{
+  "summary": "Provided sed commands to reduce message length limits on server or locally. Bio limit reduced from 200 to 100 chars, text from 300 to 150 chars. This should fix MESSAGE_TOO_LONG error. User can apply changes directly on server or commit locally and push.",
+  "current_status": "Solution provided. Awaiting deployment of reduced message length limits. Once applied and restarted, bot should send orders without MESSAGE_TOO_LONG errors."
+}

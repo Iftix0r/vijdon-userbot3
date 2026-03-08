@@ -1,0 +1,4 @@
+{
+  "summary": "Reset project to March 6 at 22:17:29 (commit 31e1694). Bot is now running with ./start.sh and ./stop.sh scripts. Orders are being processed through the account at this historical state.",
+  "current_status": "Project at commit 31e1694 (2026-03-06 22:17:29 +0500). Bot operational and sending orders via account."
+}

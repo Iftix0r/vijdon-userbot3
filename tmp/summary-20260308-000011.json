@@ -1,0 +1,4 @@
+{
+  "summary": "MESSAGE_TOO_LONG xatosi tuzatildi. bot.py faylining list_words funksiyasida xabar uzunligini 4000 belgiga cheklandi va so'zlar ro'yxati 50 ta so'z bilan cheklandi. O'zgarishlar GitHub'ga push qilindi (commit 25c79e8).",
+  "current_status": "Xato tuzatildi. Bot xabar uzunligini to'g'ri boshqaradi. Yangi commit 25c79e8 GitHub'da."
+}

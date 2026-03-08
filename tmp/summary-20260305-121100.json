@@ -1,0 +1,4 @@
+{
+  "summary": "Simplified order message buttons - removed copy and block buttons, keeping only phone call button with https://onmap.uz/tel/ link. Updated both main order group and additional order groups sending logic.",
+  "current_status": "Order messages now display only phone call button. Code passes validation. Ready to commit and deploy."
+}

@@ -1,0 +1,4 @@
+{
+  "summary": "Added 'tmp/' to .gitignore file to prevent temporary summary files from being tracked by Git. This ensures the tmp directory won't be uploaded to GitHub.",
+  "current_status": "tmp directory now excluded from Git tracking. User should run 'git rm -r --cached tmp/' and 'git push' if tmp was already committed."
+}
