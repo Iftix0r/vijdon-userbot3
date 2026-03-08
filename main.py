@@ -1010,13 +1010,29 @@ def create_message_handler(acc: AccountConfig):
                         try:
                             photos = await event.client.get_profile_photos(sender)
                             if photos:
-                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                                sent_msg = await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                                if sent_msg:
+                                    msg_id = sent_msg.id
+                                    cap_with_link = cap + f"\n\n<a href='https://t.me/c/{str(gid)[4:]}/{msg_id}'>📨 Habarni ko'rish</a>"
+                                    await event.client.edit_message(entity=gid, message=msg_id, text=cap_with_link, parse_mode='html')
                             else:
-                                await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                                sent_msg = await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                                if sent_msg:
+                                    msg_id = sent_msg.id
+                                    cap_with_link = cap + f"\n\n<a href='https://t.me/c/{str(gid)[4:]}/{msg_id}'>📨 Habarni ko'rish</a>"
+                                    await event.client.edit_message(entity=gid, message=msg_id, text=cap_with_link, parse_mode='html')
                         except:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                            sent_msg = await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                            if sent_msg:
+                                msg_id = sent_msg.id
+                                cap_with_link = cap + f"\n\n<a href='https://t.me/c/{str(gid)[4:]}/{msg_id}'>📨 Habarni ko'rish</a>"
+                                await event.client.edit_message(entity=gid, message=msg_id, text=cap_with_link, parse_mode='html')
                     else:
-                        await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                        sent_msg = await event.client.send_message(entity=gid, message=cap, parse_mode='html')
+                        if sent_msg:
+                            msg_id = sent_msg.id
+                            cap_with_link = cap + f"\n\n<a href='https://t.me/c/{str(gid)[4:]}/{msg_id}'>📨 Habarni ko'rish</a>"
+                            await event.client.edit_message(entity=gid, message=msg_id, text=cap_with_link, parse_mode='html')
                     print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
