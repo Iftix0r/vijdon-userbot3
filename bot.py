@@ -729,9 +729,13 @@ async def list_words(callback: types.CallbackQuery):
     driver_words = get_keywords('driver')
     
     text = f"📋 Yo'lovchi so'zlari ({len(passenger_words)}):\n\n"
-    text += ", ".join(passenger_words) if passenger_words else "Yo'q"
+    text += ", ".join(passenger_words[:50]) if passenger_words else "Yo'q"
     text += f"\n\n🚗 Haydovchi so'zlari ({len(driver_words)}):\n\n"
-    text += ", ".join(driver_words) if driver_words else "Yo'q"
+    text += ", ".join(driver_words[:50]) if driver_words else "Yo'q"
+    
+    # Xabar uzunligini cheklash (Telegram 4096 belgigacha)
+    if len(text) > 4000:
+        text = text[:3990] + "..."
     
     await callback.message.edit_text(text)
 
