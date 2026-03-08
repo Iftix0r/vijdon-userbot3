@@ -1035,14 +1035,14 @@ def create_message_handler(acc: AccountConfig):
 
                 message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{esc_user_name}</a>")
                 if user_bio and user_bio.strip():
-                    # Bio ni 200 belgiga cheklash
-                    bio_short = user_bio[:200] if len(user_bio) > 200 else user_bio
+                    # Bio ni 100 belgiga cheklash
+                    bio_short = user_bio[:100] if len(user_bio) > 200 else user_bio
                     message_parts.append(f"ℹ️ <i>{bio_short}</i>")
                 if username:
                     message_parts.append(f"🤙 @{username}")
                 if esc_text:
-                    # Text ni 300 belgiga cheklash
-                    text_short = esc_text[:300] if len(esc_text) > 300 else esc_text
+                    # Text ni 150 belgiga cheklash
+                    text_short = esc_text[:150] if len(esc_text) > 300 else esc_text
                     message_parts.append(f"💬 <b><i>{text_short}</i></b>")
                 if phones:
                     phone_num = phones[0].replace(' ', '').replace('-', '')
@@ -1726,14 +1726,14 @@ def create_message_handler(acc: AccountConfig):
 
                 message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{esc_user_name}</a>")
                 if user_bio and user_bio.strip():
-                    # Bio ni 200 belgiga cheklash
-                    bio_short = user_bio[:200] if len(user_bio) > 200 else user_bio
+                    # Bio ni 100 belgiga cheklash
+                    bio_short = user_bio[:100] if len(user_bio) > 200 else user_bio
                     message_parts.append(f"ℹ️ <i>{bio_short}</i>")
                 if username:
                     message_parts.append(f"🤙 @{username}")
                 if esc_text:
-                    # Text ni 300 belgiga cheklash
-                    text_short = esc_text[:300] if len(esc_text) > 300 else esc_text
+                    # Text ni 150 belgiga cheklash
+                    text_short = esc_text[:150] if len(esc_text) > 300 else esc_text
                     message_parts.append(f"💬 <b><i>{text_short}</i></b>")
                 if phones:
                     phone_num = phones[0].replace(' ', '').replace('-', '')
