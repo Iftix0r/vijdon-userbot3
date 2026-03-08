@@ -873,24 +873,24 @@ def create_message_handler(acc: AccountConfig):
         if phone_to_call:
             if phone_to_call.startswith('998'): phone_to_call = '+' + phone_to_call
             elif not phone_to_call.startswith('+'): phone_to_call = '+998' + phone_to_call
-            row1.append(InlineKeyboardButton(text="📞 Qo'ngiroq", url=f"https://onmap.uz/tel/{phone_to_call}"))
+            row1.append(Button.url("📞 Qo'ngiroq", f"https://onmap.uz/tel/{phone_to_call}"))
         
         if message_link and message_link != "#":
-            row1.append(InlineKeyboardButton(text="🔍 Xabarni ko'rish", url=message_link))
+            row1.append(Button.url("🔍 Xabarni ko'rish", message_link))
         if row1: buttons.append(row1)
         
         row2 = []
         if user_id and user_id > 0:
-            row2.append(InlineKeyboardButton(text=f"👤 {user_name}", url=f"tg://user?id={user_id}"))
+            row2.append(Button.url(f"👤 {user_name}", f"tg://user?id={user_id}"))
         elif username:
-            row2.append(InlineKeyboardButton(text=f"👤 {user_name}", url=f"https://t.me/{username}"))
+            row2.append(Button.url(f"👤 {user_name}", f"https://t.me/{username}"))
         if row2: buttons.append(row2)
         
         if user_id and user_id > 0:
             block_url = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-            buttons.append([InlineKeyboardButton(text="🚫 Bloklash", url=block_url)])
+            buttons.append([Button.url("🚫 Bloklash", block_url)])
         
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        keyboard = buttons if buttons else None
 
         # AKKAUNT O'Z BUYURTMA GURUHIGA YUBORISH
         ORDER_GID = acc.order_group_id
@@ -1066,13 +1066,13 @@ def create_message_handler(acc: AccountConfig):
                         try:
                             photos = await event.client.get_profile_photos(sender)
                             if photos:
-                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False, buttons=keyboard)
                             else:
-                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
                         except:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                            await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
                     else:
-                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
                     print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")

@@ -64,3 +64,7 @@ KRITIK XATOLIK: database is locked
 KRITIK XATOLIK: database is locked
 Akkaunt #0 tugmalar: 400
 Akkaunt #0 tugmalar: 400
+Bot userneymini olishda xatolik: Cannot connect to host api.telegram.org:443 ssl:default [Temporary failure in name resolution]
+Bot userneymini olishda xatolik: Cannot connect to host api.telegram.org:443 ssl:default [Temporary failure in name resolution]
+KRITIK XATOLIK: Connection to Telegram failed 5 time(s)
+KRITIK XATOLIK: Connection to Telegram failed 5 time(s)
