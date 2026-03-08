@@ -49,6 +49,11 @@ client = TelegramClient('userbot', API_ID, API_HASH)  # Legacy - profillar bo'lm
 
 MAX_PROCESSED_CACHE = 10000
 
+# Anti-flood: {user_id: [timestamps]}
+user_message_times = {}
+FLOOD_LIMIT = 3
+FLOOD_WINDOW = 60 # 1 minut
+
 
 # ========== UMUMIY DB (profiles, keywords, admins) ==========
 @contextmanager
@@ -731,6 +736,23 @@ def create_message_handler(acc: AccountConfig):
             return
         if event.sender_id == bot_id:
             return
+        
+        # Anti-flood tekshiruvi (1 minutda max 3 ta zakaz)
+        sender_id = event.sender_id
+        if sender_id:
+            current_time = asyncio.get_event_loop().time()
+            if sender_id not in user_message_times:
+                user_message_times[sender_id] = []
+            
+            # 1 minutdan eski vaqtlarni tozalash
+            user_message_times[sender_id] = [t for t in user_message_times[sender_id] if current_time - t < FLOOD_WINDOW]
+            
+            if len(user_message_times[sender_id]) >= FLOOD_LIMIT:
+                # Limitdan oshib ketdi, ignore qilinadi
+                return
+            
+            # Yangi vaqtni qo'shish
+            user_message_times[sender_id].append(current_time)
         
         # Akkaunt guruhlariga avtomatik qo'shish
         if event.chat_id not in acc.monitored_groups:
