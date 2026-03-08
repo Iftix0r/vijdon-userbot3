@@ -2293,8 +2293,10 @@ if __name__ == "__main__":
 async def message_settings_menu_handler(callback: types.CallbackQuery):
     if not is_admin(callback.from_user.id):
         await callback.answer("❌ Ruxsat yo'q!")
+        logger.warning(f"Non-admin {callback.from_user.id} tried to access message settings")
         return
     
+    logger.info(f"Admin {callback.from_user.id} accessed message settings")
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -2302,7 +2304,8 @@ async def message_settings_menu_handler(callback: types.CallbackQuery):
                          ('order_message_header',))
             result = cursor.fetchone()
             current_header = result[0] if result else '🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!'
-    except:
+    except Exception as e:
+        logger.error(f"Error fetching settings: {e}")
         current_header = '🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!'
     
     keyboard = InlineKeyboardMarkup(
