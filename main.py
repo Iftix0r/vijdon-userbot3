@@ -1035,11 +1035,15 @@ def create_message_handler(acc: AccountConfig):
 
                 message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{esc_user_name}</a>")
                 if user_bio and user_bio.strip():
-                    message_parts.append(f"ℹ️ <i>{user_bio}</i>")
+                    # Bio ni 200 belgiga cheklash
+                    bio_short = user_bio[:200] if len(user_bio) > 200 else user_bio
+                    message_parts.append(f"ℹ️ <i>{bio_short}</i>")
                 if username:
                     message_parts.append(f"🤙 @{username}")
                 if esc_text:
-                    message_parts.append(f"💬 <b><i>{esc_text}</i></b>")
+                    # Text ni 300 belgiga cheklash
+                    text_short = esc_text[:300] if len(esc_text) > 300 else esc_text
+                    message_parts.append(f"💬 <b><i>{text_short}</i></b>")
                 if phones:
                     phone_num = phones[0].replace(' ', '').replace('-', '')
                     if phone_num.startswith('998'): phone_num = '+' + phone_num
@@ -1722,11 +1726,15 @@ def create_message_handler(acc: AccountConfig):
 
                 message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{esc_user_name}</a>")
                 if user_bio and user_bio.strip():
-                    message_parts.append(f"ℹ️ <i>{user_bio}</i>")
+                    # Bio ni 200 belgiga cheklash
+                    bio_short = user_bio[:200] if len(user_bio) > 200 else user_bio
+                    message_parts.append(f"ℹ️ <i>{bio_short}</i>")
                 if username:
                     message_parts.append(f"🤙 @{username}")
                 if esc_text:
-                    message_parts.append(f"💬 <b><i>{esc_text}</i></b>")
+                    # Text ni 300 belgiga cheklash
+                    text_short = esc_text[:300] if len(esc_text) > 300 else esc_text
+                    message_parts.append(f"💬 <b><i>{text_short}</i></b>")
                 if phones:
                     phone_num = phones[0].replace(' ', '').replace('-', '')
                     if phone_num.startswith('998'): phone_num = '+' + phone_num
