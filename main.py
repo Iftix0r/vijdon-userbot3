@@ -1,4 +1,4 @@
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, Button
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.errors import SessionPasswordNeededError
 import asyncio
@@ -861,6 +861,37 @@ def create_message_handler(acc: AccountConfig):
         if is_blocked:
             return
         
+        # Tugmalar tayyorlash (Userbot orqali yuborish uchun)
+        buttons = []
+        row1 = []
+        phone_to_call = None
+        if phones:
+            phone_to_call = phones[0].replace(' ', '').replace('-', '')
+        elif sender and hasattr(sender, 'phone') and sender.phone:
+            phone_to_call = sender.phone
+        
+        if phone_to_call:
+            if phone_to_call.startswith('998'): phone_to_call = '+' + phone_to_call
+            elif not phone_to_call.startswith('+'): phone_to_call = '+998' + phone_to_call
+            row1.append(InlineKeyboardButton(text="📞 Qo'ngiroq", url=f"https://onmap.uz/tel/{phone_to_call}"))
+        
+        if message_link and message_link != "#":
+            row1.append(InlineKeyboardButton(text="🔍 Xabarni ko'rish", url=message_link))
+        if row1: buttons.append(row1)
+        
+        row2 = []
+        if user_id and user_id > 0:
+            row2.append(InlineKeyboardButton(text=f"👤 {user_name}", url=f"tg://user?id={user_id}"))
+        elif username:
+            row2.append(InlineKeyboardButton(text=f"👤 {user_name}", url=f"https://t.me/{username}"))
+        if row2: buttons.append(row2)
+        
+        if user_id and user_id > 0:
+            block_url = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
+            buttons.append([InlineKeyboardButton(text="🚫 Bloklash", url=block_url)])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+
         # AKKAUNT O'Z BUYURTMA GURUHIGA YUBORISH
         ORDER_GID = acc.order_group_id
         
@@ -903,70 +934,26 @@ def create_message_handler(acc: AccountConfig):
                 try:
                     profile_photos = await event.client.get_profile_photos(sender)
                     if profile_photos:
-                        await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False)
+                        await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False, buttons=keyboard)
                     else:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False)
+                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False, buttons=keyboard)
                     print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
                     logger.info(f"Akkaunt #{acc.profile_id} Zakaz #{order_number} yuborildi")
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} profil rasmi: {e}")
                     try:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False)
+                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False, buttons=keyboard)
                     except Exception as e2:
                         logger.error(f"Akkaunt #{acc.profile_id} matn yuborish: {e2}")
             else:
-                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False)
+                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False, buttons=keyboard)
         except Exception as e:
             logger.error(f"Akkaunt #{acc.profile_id} buyurtma yuborish: {e}")
         
-        # Bot orqali tugmalar yuborish
+        # Reklama va qo'shimcha guruhlar (Faqat Reklama guruhlari uchun Bot API kerak bo'lishi mumkin, lekin user so'ragani uchun asosiy tugmalarni o'chiraman)
         try:
             async with aiohttp.ClientSession() as session:
-                user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                buttons_message = f"<i>📝 {user_bio}</i>" if user_bio else f"🚕 <b>#{order_number}</b>"
-                
-                buttons = []
-                row1 = []
-                phone_to_call = None
-                if phones:
-                    phone_to_call = phones[0].replace(' ', '').replace('-', '')
-                elif sender and hasattr(sender, 'phone') and sender.phone:
-                    phone_to_call = sender.phone
-                if phone_to_call:
-                    if phone_to_call.startswith('998'):
-                        phone_to_call = '+' + phone_to_call
-                    elif not phone_to_call.startswith('+'):
-                        phone_to_call = '+998' + phone_to_call
-                    row1.append({"text": "📞 Qo'ngiroq", "url": f"https://onmap.uz/tel/{phone_to_call}"})
-                if message_link and message_link != "#":
-                    row1.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
-                if row1:
-                    buttons.append(row1)
-                row2 = []
-                if user_id and user_id > 0:
-                    row2.append({"text": f"👤 {user_name}", "url": f"tg://user?id={user_id}"})
-                elif username:
-                    row2.append({"text": f"👤 {user_name}", "url": f"https://t.me/{username}"})
-                if row2:
-                    buttons.append(row2)
-                
-                # Bloklash tugmasi
-                if user_id and user_id > 0:
-                    block_url = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-                    buttons.append([{"text": "🚫 Bloklash", "url": block_url}])
-                
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                payload = {
-                    "chat_id": ORDER_GID,
-                    "text": buttons_message,
-                    "parse_mode": "HTML",
-                    "reply_markup": {"inline_keyboard": buttons} if buttons else None
-                }
-                async with session.post(url, json=payload) as resp:
-                    if resp.status == 200:
-                        print(f"✅ AKK#{acc.profile_id} TUGMALAR -> {ORDER_GID}")
-                    else:
-                        logger.error(f"Akkaunt #{acc.profile_id} tugmalar: {resp.status}")
                 
                 # Reklama guruhlarga yuborish
                 try:
@@ -995,22 +982,55 @@ def create_message_handler(acc: AccountConfig):
                             logger.error(f"Akkaunt #{acc.profile_id} reklama {special_group}: {e}")
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} reklama: {e}")
-                
-                # Qo'shimcha buyurtma guruhlarga
-                try:
-                    with acc.get_db() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute('SELECT group_id FROM order_groups')
-                        extra_groups = [row[0] for row in cursor.fetchall()]
-                    for gid in extra_groups:
-                        payload["chat_id"] = gid
-                        async with session.post(url, json=payload) as resp:
-                            if resp.status == 200:
-                                logger.info(f"Akkaunt #{acc.profile_id} tugmalar qo'shimcha: {gid}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh tugmalar: {e}")
         except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} bot tugmalar: {e}")
+            logger.error(f"Akkaunt #{acc.profile_id} reklama bot session: {e}")
+        
+        # Qo'shimcha buyurtma guruhlarga akkaunt orqali
+        try:
+            with acc.get_db() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT group_id FROM order_groups')
+                extra_groups = [row[0] for row in cursor.fetchall()]
+            
+            for gid in extra_groups:
+                try:
+                    user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
+                    msg_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
+                    msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
+                    if username:
+                        msg_parts.append(f"🤙 @{username}")
+                    if user_bio:
+                        msg_parts.append(f"📝 <b><i>{user_bio}</i></b>")
+                    if text_content and text_content.strip():
+                        msg_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
+                    if phones:
+                        pn = phones[0].replace(' ', '').replace('-', '')
+                        if pn.startswith('998'): pn = '+' + pn
+                        elif not pn.startswith('+998'): pn = '+998' + pn
+                        msg_parts.append(f"📞 {pn}")
+                    elif sender and hasattr(sender, 'phone') and sender.phone:
+                        msg_parts.append(f"📞 +{sender.phone}")
+                    cap = "\n\n".join(msg_parts)
+                    if message_link and message_link != "#":
+                        blk_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
+                        cap += f"\n\n<a href='{message_link}'>👀 ko'rish</a> | <a href='{blk_link}'>🚫 Bloklash</a>"
+                    
+                    if sender:
+                        try:
+                            photos = await event.client.get_profile_photos(sender)
+                            if photos:
+                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False, buttons=keyboard)
+                            else:
+                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
+                        except:
+                            await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
+                    else:
+                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
+                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
+                except Exception as e:
+                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
+        except Exception as e:
+            logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruhlar: {e}")
         
         # Qo'shimcha buyurtma guruhlarga akkaunt orqali
         try:
