@@ -1748,7 +1748,8 @@ def admin_menu():
         inline_keyboard=[
             [InlineKeyboardButton(text="📋 Guruh boshqaruvi", callback_data="groups_menu")],
             [InlineKeyboardButton(text="👥 Foydalanuvchilar boshqaruvi", callback_data="users_menu")],
-            [InlineKeyboardButton(text="👤 Profillar boshqaruvi", callback_data="profiles_menu")]
+            [InlineKeyboardButton(text="👤 Profillar boshqaruvi", callback_data="profiles_menu")],
+            [InlineKeyboardButton(text="💬 Xabar sozlamalari", callback_data="message_settings_menu")]
         ]
     )
     return keyboard
@@ -2269,3 +2270,83 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+# ========== XABAR SOZLAMALARI ==========
+
+@dp.callback_query(lambda c: c.data == "message_settings_menu")
+async def message_settings_menu_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT setting_value FROM settings WHERE setting_key = ?', 
+                         ('order_message_header',))
+            result = cursor.fetchone()
+            current_header = result[0] if result else '🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!'
+    except:
+        current_header = '🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!'
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="✏️ Buyurtma xabari o'zgartirilish", callback_data="edit_order_header")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin_menu")]
+        ]
+    )
+    
+    await callback.message.edit_text(
+        f"💬 <b>Xabar sozlamalari</b>\n\n"
+        f"<b>Hozirgi buyurtma xabari:</b>\n"
+        f"<code>{current_header}</code>",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "edit_order_header")
+async def edit_order_header_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    user_states[callback.from_user.id] = 'waiting_order_header'
+    await callback.message.edit_text(
+        "✏️ <b>Yangi buyurtma xabari yuboring:</b>\n\n"
+        "Masalan: 🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!",
+        parse_mode='HTML'
+    )
+
+@dp.message(lambda message: user_states.get(message.from_user.id) == 'waiting_order_header')
+async def save_order_header_handler(message: types.Message):
+    if not is_admin(message.from_user.id):
+        await message.answer("❌ Ruxsat yo'q!")
+        return
+    
+    new_header = message.text.strip()
+    
+    if len(new_header) > 200:
+        await message.answer("❌ Xabar juda uzun! 200 belgidan kam bo'lishi kerak.")
+        return
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR REPLACE INTO settings (setting_key, setting_value)
+                VALUES (?, ?)
+            ''', ('order_message_header', new_header))
+            conn.commit()
+        
+        user_states.pop(message.from_user.id, None)
+        await message.answer(
+            f"✅ <b>Buyurtma xabari muvaffaqiyatli o'zgartirildi!</b>\n\n"
+            f"<b>Yangi xabar:</b>\n"
+            f"<code>{new_header}</code>",
+            parse_mode='HTML'
+        )
+        logger.info(f"Admin {message.from_user.id} buyurtma xabarini o'zgartirdi")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: {e}")
+        logger.error(f"Buyurtma xabari o'zgartirilishda xatolik: {e}")
