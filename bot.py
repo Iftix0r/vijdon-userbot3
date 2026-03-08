@@ -959,14 +959,10 @@ async def send_taxi_order_simple(message, user, phone):
     
     order_message = (
         f"🚕 <b>ZAKAZ #{order_number}</b>\n"
-        f"{'='*25}\n\n"
+        f"{'='*25}\n"
         f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
-        f"📞 <b>Telefon:</b> {formatted_phone}\n\n"
-        f"🚗 <b>Yo'nalish:</b>\n"
-        f"   {user_data['from_city']} ➡️ {user_data['to_city']}\n\n"
-        f'👥 <b>Yo\'lovchilar:</b> {user_data.get("passenger_count", "Noma'lum")}\n'
-        f'🕐 <b>Vaqt:</b> {user_data.get("departure_time", "Noma'lum")}\n\n'
-        f"<b>Mijoz:</b> {user_name}\n\n"
+        f"📞 {formatted_phone}\n"
+        f'👥 Yo\'lovchilar: {user_data.get("passenger_count", "Noma'lum")}\n\n'
         f"<a href='https://t.me/c/{str(ORDER_GROUP_ID)[4:]}/{{message_id}}'>📨 Habarni ko'rish</a>"
     )
     
@@ -1086,10 +1082,11 @@ async def send_taxi_order(message, user, phone):
     
     order_message = (
         f"🚕 <b>YANGI ZAKAZ</b>\n"
-        f"{'='*25}\n\n"
+        f"{'='*25}\n"
         f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
-        f"📞 <b>Telefon:</b> {formatted_phone}\n"
-        f"🎯 <b>Qayerga:</b> {user_data['destination']}"
+        f"📞 {formatted_phone}\n"
+        f"🎯 {user_data['destination']}\n\n"
+        f"<a href='https://t.me/c/{str(ORDER_GROUP_ID)[4:]}/{{message_id}}'>📨 Habarni ko'rish</a>"
     )
     
     # Tugmalarni tayyorlash
