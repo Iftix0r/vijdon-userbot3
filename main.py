@@ -979,18 +979,8 @@ def create_message_handler(acc: AccountConfig):
         
         ai_checked = False
         if not has_passenger_words:
-            # 100 belgidan kam bo'lsa OpenAI ga yuborish
-            if len(text_content) <= 100 and OPENAI_API_KEY:
-                print(f"🤖 AKK#{acc.profile_id}: NOMA'LUM - OpenAI tekshirmoqda | {text_content[:30]}...")
-                is_passenger = await openai_check_passenger(text_content)
-                if not is_passenger:
-                    print(f"❌ AKK#{acc.profile_id}: OpenAI - YO'LOVCHI EMAS - IGNORE | {text_content[:30]}...")
-                    return
-                print(f"✅ AKK#{acc.profile_id}: OpenAI - YO'LOVCHI - YUBORILMOQDA | {text_content[:30]}...")
-                ai_checked = True
-            else:
-                print(f"❓ AKK#{acc.profile_id}: NOMA'LUM - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
-                return
+            print(f"❓ AKK#{acc.profile_id}: NOMA'LUM - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
+            return
         
         # Yo'lovchi xabari aniqlandi
         print(f"🙋‍♂️ AKK#{acc.profile_id}: YO'LOVCHI - YUBORILMOQDA | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
