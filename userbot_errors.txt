@@ -1026,3 +1026,71 @@ Main DB error: name 'ORDER_GID' is not defined
 Main DB error: name 'ORDER_GID' is not defined
 Akkaunt #10 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
 Akkaunt #10 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #11 bot orqali yuborish: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #11 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #12 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #12 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #12 bot orqali yuborish: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #12 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #12 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}

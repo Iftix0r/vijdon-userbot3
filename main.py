@@ -1054,7 +1054,7 @@ def create_message_handler(acc: AccountConfig):
                             print("DEBUG: Default guruhdagi xabarni ko'rish tugmasi qo'shildi")
                         
                         payload = {
-                            "chat_id": ORDER_GID,
+                            "chat_id": gid,
                             "text": caption,
                             "parse_mode": "HTML",
                             "disable_web_page_preview": True,
@@ -1063,12 +1063,12 @@ def create_message_handler(acc: AccountConfig):
                         
                         print(f"DEBUG: Payload tugmalar: {len(inline_buttons)} ta")
                         print(f"DEBUG: Bot token mavjud: {'Ha' if BOT_TOKEN else 'Yo\'q'}")
-                        print(f"DEBUG: Guruh ID: {ORDER_GID}")
+                        print(f"DEBUG: Guruh ID: {gid}")
                         
                         async with session.post(url, json=payload) as resp:
                             response_text = await resp.text()
                             if resp.status == 200:
-                                print(f"✅ BOT ASOSIY GURUH: ZAKAZ #{order_number} -> {ORDER_GID}")
+                                print(f"✅ BOT ASOSIY GURUH: ZAKAZ #{order_number} -> {gid}")
                                 print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'} | 🎯 Tugmalar: {len(inline_buttons)} ta")
                                 logger.info(f"Bot orqali Zakaz #{order_number} yuborildi")
                             else:
@@ -1077,18 +1077,18 @@ def create_message_handler(acc: AccountConfig):
                                 
                                 # Agar bot guruhga kira olmasa, userbot orqali yuborish
                                 if resp.status == 400 and "chat not found" in response_text.lower():
-                                    logger.warning(f"Bot {ORDER_GID} guruhga kira olmadi, userbot orqali yuborish...")
+                                    logger.warning(f"Bot {gid} guruhga kira olmadi, userbot orqali yuborish...")
                                     print(f"⚠️ Bot guruhga kira olmadi, userbot orqali fallback...")
                                     try:
                                         # Userbot orqali yuborish (fallback)
-                                        success, used_acc_id = await send_to_any_available(ORDER_GID, caption, sender, None)
+                                        success, used_acc_id = await send_to_any_available(gid, caption, sender, None)
                                         if success:
-                                            print(f"✅ FALLBACK USERBOT: AKK#{used_acc_id} ZAKAZ #{order_number} -> {ORDER_GID}")
+                                            print(f"✅ FALLBACK USERBOT: AKK#{used_acc_id} ZAKAZ #{order_number} -> {gid}")
                                             print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'}")
                                             logger.info(f"Fallback: Akkaunt #{used_acc_id} Zakaz #{order_number} yuborildi")
                                         else:
-                                            logger.error(f"Hech bir akkaunt ham {ORDER_GID} guruhga kira olmadi")
-                                            print(f"❌ FALLBACK HAM ISHLAMADI: Hech bir akkaunt {ORDER_GID} guruhga kira olmadi")
+                                            logger.error(f"Hech bir akkaunt ham {gid} guruhga kira olmadi")
+                                            print(f"❌ FALLBACK HAM ISHLAMADI: Hech bir akkaunt {gid} guruhga kira olmadi")
                                     except Exception as fallback_error:
                                         logger.error(f"Fallback yuborish xatolik: {fallback_error}")
                                         print(f"❌ FALLBACK XATOLIK: {fallback_error}")
@@ -1143,7 +1143,7 @@ def create_message_handler(acc: AccountConfig):
             # Umumiy bazadan qo'shimcha guruhlarni olish
             with get_main_db() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (ORDER_GID,))
+                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (acc.order_group_id,))
                 extra_groups = [row[0] for row in cursor.fetchall()]
             
             print(f"DEBUG: Qo'shimcha guruhlar topildi: {len(extra_groups)} ta - {extra_groups}")
