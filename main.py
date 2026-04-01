@@ -647,7 +647,7 @@ async def openai_check_passenger(text):
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Siz taksi guruhidagi xabarlarni tahlil qilasiz. Xabar yo'lovchi (taksi izlayotgan odam) tomonidan yozilganmi? Faqat 'ha' yoki 'yoq' deb javob bering."},
+                    {"role": "system", "content": "Siz O'zbekiston taksi guruhidagi xabarlarni tahlil qilasiz. Xabar faqat yo'lovchi (taksi izlayotgan, borish kerak, ketish kerak degan odam) tomonidan yozilganmi? Haydovchi (taksi haydovchisi, mashina bor, olib ketaman degan) bo'lsa YOQ. Faqat 'ha' yoki 'yoq' deb javob bering."},
                     {"role": "user", "content": text}
                 ],
                 "max_tokens": 5
