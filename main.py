@@ -636,7 +636,33 @@ def reklama_matndan_olib_tashlash(text):
     # 4. Ortiqcha bo'shliqlar
     return re.sub(r'\s+', ' ', t).strip()
 
-def get_order_message_header():
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+
+async def openai_check_passenger(text):
+    """OpenAI orqali xabar yo'lovchimi yoki yo'qligini tekshirish"""
+    if not OPENAI_API_KEY:
+        return False
+    try:
+        async with aiohttp.ClientSession() as session:
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "Siz taksi guruhidagi xabarlarni tahlil qilasiz. Xabar yo'lovchi (taksi izlayotgan odam) tomonidan yozilganmi? Faqat 'ha' yoki 'yoq' deb javob bering."},
+                    {"role": "user", "content": text}
+                ],
+                "max_tokens": 5
+            }
+            headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+            async with session.post("https://api.openai.com/v1/chat/completions", json=payload, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    answer = data['choices'][0]['message']['content'].strip().lower()
+                    return 'ha' in answer
+    except Exception as e:
+        logger.error(f"OpenAI tekshiruv xatolik: {e}")
+    return False
+
+
     """Database'dan buyurtma xabari header'ini o'qish"""
     try:
         with get_main_db() as conn:
@@ -923,8 +949,17 @@ def create_message_handler(acc: AccountConfig):
             print(f"🚗 AKK#{acc.profile_id}: HAYDOVCHI - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
             return
         if not has_passenger_words:
-            print(f"❓ AKK#{acc.profile_id}: NOMA'LUM - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
-            return
+            # 100 belgidan kam bo'lsa OpenAI ga yuborish
+            if len(text_content) <= 100 and OPENAI_API_KEY:
+                print(f"🤖 AKK#{acc.profile_id}: NOMA'LUM - OpenAI tekshirmoqda | {text_content[:30]}...")
+                is_passenger = await openai_check_passenger(text_content)
+                if not is_passenger:
+                    print(f"❌ AKK#{acc.profile_id}: OpenAI - YO'LOVCHI EMAS - IGNORE | {text_content[:30]}...")
+                    return
+                print(f"✅ AKK#{acc.profile_id}: OpenAI - YO'LOVCHI - YUBORILMOQDA | {text_content[:30]}...")
+            else:
+                print(f"❓ AKK#{acc.profile_id}: NOMA'LUM - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
+                return
         
         # Yo'lovchi xabari aniqlandi
         print(f"🙋‍♂️ AKK#{acc.profile_id}: YO'LOVCHI - YUBORILMOQDA | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
