@@ -1236,17 +1236,19 @@ def create_message_handler(acc: AccountConfig):
                                         print(f"⚠️ Bot {gid} guruhga kira olmadi, userbot orqali fallback...")
                                         try:
                                             # Userbot orqali yuborish (fallback)
+                                            from shared_accounts import html_to_telethon
+                                            telethon_cap = html_to_telethon(cap)
                                             if sender:
                                                 try:
                                                     photos = await event.client.get_profile_photos(sender)
                                                     if photos:
-                                                        await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                                                        await event.client.send_file(entity=gid, file=photos[0], caption=telethon_cap, parse_mode='md', link_preview=False)
                                                     else:
-                                                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                                        await event.client.send_message(entity=gid, message=telethon_cap, parse_mode='md', link_preview=False)
                                                 except:
-                                                    await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                                    await event.client.send_message(entity=gid, message=telethon_cap, parse_mode='md', link_preview=False)
                                             else:
-                                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                                await event.client.send_message(entity=gid, message=telethon_cap, parse_mode='md', link_preview=False)
                                             print(f"✅ FALLBACK USERBOT: AKK#{acc.profile_id} ZAKAZ #{order_number} -> {gid}")
                                             print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'}")
                                         except Exception as fallback_error:
