@@ -824,27 +824,26 @@ def create_message_handler(acc: AccountConfig):
         
         # Tez guruhga yuborish - barcha filtrlardan OLDIN
         if len(text_content) <= 80 and not event.message.sticker:
-            has_emoji = bool(re.search(u"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]", text_content))
-            if not has_emoji:
+            _has_emoji = bool(re.search(u"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]", text_content))
+            if not _has_emoji:
                 try:
-                    sender_fast = await event.get_sender()
-                    uid = sender_fast.id if sender_fast else 0
-                    uname = f"{sender_fast.first_name or ''} {sender_fast.last_name or ''}" .strip() if sender_fast and hasattr(sender_fast, 'first_name') else 'Foydalanuvchi'
-                    uusername = sender_fast.username if sender_fast and hasattr(sender_fast, 'username') else None
-                    fast_caption = f"🚕 <b>TEZ ZAKAZ</b>\n\n👤 <a href='tg://user?id={uid}'>{uname}</a>\n\n💬 <b><i>{text_content.strip()}</i></b>"
-                    fast_btn_url = f"https://t.me/{uusername}" if uusername else f"tg://user?id={uid}"
-                    fast_buttons = [[{"text": f"👤 {uname}", "url": fast_btn_url}]]
-                    async with aiohttp.ClientSession() as s:
-                        await s.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+                    _sender = await event.get_sender()
+                    _uid = _sender.id if _sender else 0
+                    _uname = (f"{_sender.first_name or ''} {_sender.last_name or ''}".strip() if _sender and hasattr(_sender, 'first_name') else 'Foydalanuvchi') or 'Foydalanuvchi'
+                    _uusername = _sender.username if _sender and hasattr(_sender, 'username') else None
+                    _caption = f"🚕 <b>TEZ ZAKAZ</b>\n\n👤 <a href='tg://user?id={_uid}'>{_uname}</a>\n\n💬 <b><i>{text_content.strip()}</i></b>"
+                    _btn_url = f"https://t.me/{_uusername}" if _uusername else f"tg://user?id={_uid}"
+                    async with aiohttp.ClientSession() as _s:
+                        await _s.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
                             "chat_id": FAST_GROUP_ID,
-                            "text": fast_caption,
+                            "text": _caption,
                             "parse_mode": "HTML",
                             "disable_web_page_preview": True,
-                            "reply_markup": {"inline_keyboard": fast_buttons}
+                            "reply_markup": {"inline_keyboard": [[{"text": f"👤 {_uname}", "url": _btn_url}]]}
                         })
-                    print(f"✅ TEZ GURUH: {uname} | {text_content[:30]}")
-                except Exception as e:
-                    logger.error(f"Tez guruh: {e}")
+                    print(f"✅ TEZ GURUH: {_uname} | {text_content[:30]}")
+                except Exception as _e:
+                    logger.error(f"Tez guruh: {_e}")
         
         if len(text_content) > 100:
             return
