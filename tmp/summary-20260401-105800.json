@@ -1,0 +1,4 @@
+{
+  "summary": "User reported that when clicking 'Buyurtma guruhiga yuborish' button in fast group, the bot shows '0 ta guruhga yuborildi' but orders are actually being sent to groups. I identified the issue in bot.py fastsend handler - it uses bot.forward_message to forward messages to order_groups from database, but the sent counter may not be working correctly due to how the forward operation counts or the order_groups table might be empty.",
+  "current_status": "Issue identified - fastsend function in bot.py forwards messages to order_groups but reports 0 sent. Need to investigate the order_groups table content and fix the counting logic."
+}
