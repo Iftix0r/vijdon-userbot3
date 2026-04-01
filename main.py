@@ -988,7 +988,7 @@ def create_message_handler(acc: AccountConfig):
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
                     header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
                     message_parts = [f"{header} <b>#{order_number}</b>"]
-                    message_parts.append(f"👤 {user_name}")  # Oddiy matn sifatida
+                    message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                     if username:
                         message_parts.append(f"🤙 @{username}")
                     if user_bio:
@@ -1019,20 +1019,10 @@ def create_message_handler(acc: AccountConfig):
                             inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
                             print(f"DEBUG: Telefon tugmasi qo'shildi: {phone_to_call}")
                         
-                        # Foydalanuvchi lichkasiga kirish tugmasi (username yoki user_id orqali)
+                        # Xabarni ko'rish tugmasi
                         contact_row = []
-                        if username and username.strip():
-                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"})
-                            print(f"DEBUG: Username tugmasi qo'shildi: @{username}")
-                        elif user_id and user_id > 0:
-                            # To'g'ridan-to'g'ri foydalanuvchi profiliga utish (tg://user ishlaydi)
-                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"})
-                            print(f"DEBUG: Kontakt tugmasi qo'shildi: {user_id}")
-                        
-                        # Agar akkaunt maxfiy bo'lsa (yoki telegram xato bersa), xabarni o'zini ko'rish tugmasi har doim chiqadi
                         if message_link and message_link != "#":
                             contact_row.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
-                            print(f"DEBUG: Guruhdagi xabarni ko'rish tugmasi qo'shildi: {message_link}")
                         
                         if contact_row:
                             inline_buttons.append(contact_row)
@@ -1160,7 +1150,7 @@ def create_message_handler(acc: AccountConfig):
                 try:
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
                     msg_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b> <b>#{order_number}</b>"]
-                    msg_parts.append(f"👤 {user_name}")  # Oddiy matn sifatida
+                    msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                     if username:
                         msg_parts.append(f"🤙 @{username}")
                     if user_bio:
@@ -1187,14 +1177,8 @@ def create_message_handler(acc: AccountConfig):
                         if phone_to_call:
                             inline_buttons.append([{"text": f"� {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
                         
-                        # Foydalanuvchi lichkasiga kirish tugmasi
-                        contact_row = []
-                        if username and username.strip():
-                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"})
-                        elif user_id and user_id > 0:
-                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"})
-                        
                         # Xabarning o'ziga link
+                        contact_row = []
                         if message_link and message_link != "#":
                             contact_row.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
                             
