@@ -821,6 +821,31 @@ def create_message_handler(acc: AccountConfig):
         text_content = event.text or ""
         if not text_content:
             return
+        
+        # Tez guruhga yuborish - barcha filtrlardan OLDIN
+        if len(text_content) <= 80 and not event.message.sticker:
+            has_emoji = bool(re.search(u"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]", text_content))
+            if not has_emoji:
+                try:
+                    sender_fast = await event.get_sender()
+                    uid = sender_fast.id if sender_fast else 0
+                    uname = f"{sender_fast.first_name or ''} {sender_fast.last_name or ''}" .strip() if sender_fast and hasattr(sender_fast, 'first_name') else 'Foydalanuvchi'
+                    uusername = sender_fast.username if sender_fast and hasattr(sender_fast, 'username') else None
+                    fast_caption = f"🚕 <b>TEZ ZAKAZ</b>\n\n👤 <a href='tg://user?id={uid}'>{uname}</a>\n\n💬 <b><i>{text_content.strip()}</i></b>"
+                    fast_btn_url = f"https://t.me/{uusername}" if uusername else f"tg://user?id={uid}"
+                    fast_buttons = [[{"text": f"👤 {uname}", "url": fast_btn_url}]]
+                    async with aiohttp.ClientSession() as s:
+                        await s.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+                            "chat_id": FAST_GROUP_ID,
+                            "text": fast_caption,
+                            "parse_mode": "HTML",
+                            "disable_web_page_preview": True,
+                            "reply_markup": {"inline_keyboard": fast_buttons}
+                        })
+                    print(f"✅ TEZ GURUH: {uname} | {text_content[:30]}")
+                except Exception as e:
+                    logger.error(f"Tez guruh: {e}")
+        
         if len(text_content) > 100:
             return
         if event.message.sticker:
@@ -944,33 +969,6 @@ def create_message_handler(acc: AccountConfig):
         
         has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
         has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
-        
-        # Tez guruhga yuborish (kalit so'zsiz, 80 belgidan kam)
-        if len(text_content) <= 80 and not has_driver_words:
-            try:
-                async with aiohttp.ClientSession() as session:
-                    fast_caption = f"🚕 <b>#{order_number}</b>\n\n"
-                    fast_caption += f"👤 <a href='tg://user?id={user_id}'>{clean_user_name or 'Foydalanuvchi'}</a>\n\n"
-                    fast_caption += f"💬 <b><i>{text_content.strip()}</i></b>"
-                    fast_buttons = []
-                    if username:
-                        fast_buttons.append([{"text": f"👤 {clean_user_name}", "url": f"https://t.me/{username}"}])
-                    else:
-                        fast_buttons.append([{"text": f"👤 {clean_user_name}", "url": f"tg://user?id={user_id}"}])
-                    fast_payload = {
-                        "chat_id": FAST_GROUP_ID,
-                        "text": fast_caption,
-                        "parse_mode": "HTML",
-                        "disable_web_page_preview": True,
-                        "reply_markup": {"inline_keyboard": fast_buttons}
-                    }
-                    async with session.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json=fast_payload) as resp:
-                        if resp.status == 200:
-                            print(f"✅ TEZ GURUH: #{order_number} -> {FAST_GROUP_ID}")
-                        else:
-                            logger.error(f"Tez guruh xatolik: {await resp.text()}")
-            except Exception as e:
-                logger.error(f"Tez guruh yuborish: {e}")
         
         # Xabar turini aniqlash
         if has_driver_words:
