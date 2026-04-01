@@ -1025,8 +1025,8 @@ def create_message_handler(acc: AccountConfig):
                         if phone_to_call:
                             inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
                         
-                        # Xabarni ko'rish tugmasi
-                        if message_link and message_link != "#":
+                        # Xabarni ko'rish tugmasi - faqat username yo'q bo'lsa
+                        if not username and message_link and message_link != "#":
                             inline_buttons.append([{"text": "🔍 Xabarni ko'rish", "url": message_link}])
                         
                         # Bloklash tugmasi
