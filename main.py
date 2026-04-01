@@ -1056,6 +1056,19 @@ def create_message_handler(acc: AccountConfig):
                                 print(f"✅ BOT ASOSIY GURUH: ZAKAZ #{order_number} -> {gid}")
                                 print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'} | 🎯 Tugmalar: {len(inline_buttons)} ta")
                                 logger.info(f"Bot orqali Zakaz #{order_number} yuborildi")
+                                # Akkaunt orqali mijoz profil fotosi bilan yuborish
+                                if sender:
+                                    try:
+                                        from shared_accounts import html_to_telethon
+                                        telethon_cap = html_to_telethon(caption)
+                                        photos = await event.client.get_profile_photos(sender)
+                                        if photos:
+                                            await event.client.send_file(entity=gid, file=photos[0], caption=telethon_cap, parse_mode='md', link_preview=False)
+                                        else:
+                                            await event.client.send_message(entity=gid, message=telethon_cap, parse_mode='md', link_preview=False)
+                                        print(f"✅ AKKAUNT PROFIL: ZAKAZ #{order_number} -> {gid}")
+                                    except Exception as acc_err:
+                                        logger.error(f"Akkaunt profil yuborish: {acc_err}")
                             else:
                                 logger.error(f"Bot API xatolik: {resp.status} - {response_text}")
                                 print(f"❌ BOT API XATOLIK: {resp.status} - {response_text}")
@@ -1065,7 +1078,6 @@ def create_message_handler(acc: AccountConfig):
                                     logger.warning(f"Bot {gid} guruhga kira olmadi, userbot orqali yuborish...")
                                     print(f"⚠️ Bot guruhga kira olmadi, userbot orqali fallback...")
                                     try:
-                                        # Userbot orqali yuborish (fallback)
                                         success, used_acc_id = await send_to_any_available(gid, caption, sender, None)
                                         if success:
                                             print(f"✅ FALLBACK USERBOT: AKK#{used_acc_id} ZAKAZ #{order_number} -> {gid}")
