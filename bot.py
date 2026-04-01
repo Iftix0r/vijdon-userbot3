@@ -3069,6 +3069,7 @@ async def send_blocked_order_handler(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("fast_send_"))
 async def fast_send_handler(callback: types.CallbackQuery):
     try:
+        user_id_from_data = callback.data.replace("fast_send_", "")
         original_text = callback.message.text or callback.message.caption or ""
         
         with get_db_connection() as conn:
@@ -3079,7 +3080,7 @@ async def fast_send_handler(callback: types.CallbackQuery):
         if not order_groups:
             order_groups = [ORDER_GROUP_ID]
         
-        # Faqat mijoz ismi tugmasini olish (yuborish tugmasiz)
+        # Yuborish tugmasini olib tashlagan keyboard
         new_buttons = []
         if callback.message.reply_markup:
             for row in callback.message.reply_markup.inline_keyboard:
@@ -3091,11 +3092,10 @@ async def fast_send_handler(callback: types.CallbackQuery):
         sent = 0
         for gid in order_groups:
             try:
-                await bot.send_message(
+                await bot.copy_message(
                     chat_id=gid,
-                    text=original_text,
-                    parse_mode='HTML',
-                    disable_web_page_preview=True,
+                    from_chat_id=callback.message.chat.id,
+                    message_id=callback.message.message_id,
                     reply_markup=keyboard
                 )
                 sent += 1
