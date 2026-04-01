@@ -833,13 +833,17 @@ def create_message_handler(acc: AccountConfig):
                     _uusername = _sender.username if _sender and hasattr(_sender, 'username') else None
                     _caption = f"🚕 <b>TEZ ZAKAZ</b>\n\n👤 <a href='tg://user?id={_uid}'>{_uname}</a>\n\n💬 <b><i>{text_content.strip()}</i></b>"
                     _btn_url = f"https://t.me/{_uusername}" if _uusername else f"tg://user?id={_uid}"
+                    _buttons = [
+                        [{"text": f"👤 {_uname}", "url": _btn_url}],
+                        [{"text": "🚕 Buyurtmalar guruhiga yuborish", "callback_data": f"fast_send_{_uid}"}]
+                    ]
                     async with aiohttp.ClientSession() as _s:
                         await _s.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
                             "chat_id": FAST_GROUP_ID,
                             "text": _caption,
                             "parse_mode": "HTML",
                             "disable_web_page_preview": True,
-                            "reply_markup": {"inline_keyboard": [[{"text": f"👤 {_uname}", "url": _btn_url}]]}
+                            "reply_markup": {"inline_keyboard": _buttons}
                         })
                     print(f"✅ TEZ GURUH: {_uname} | {text_content[:30]}")
                 except Exception as _e:
