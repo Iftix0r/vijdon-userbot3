@@ -1060,12 +1060,25 @@ def create_message_handler(acc: AccountConfig):
                                 if sender:
                                     try:
                                         from shared_accounts import html_to_telethon
-                                        telethon_cap = html_to_telethon(caption)
-                                        photos = await event.client.get_profile_photos(sender)
-                                        if photos:
-                                            await event.client.send_file(entity=gid, file=photos[0], caption=telethon_cap, parse_mode='md', link_preview=False)
+                                        # Username bo'lsa link ishlaydi, bo'lmasa reply_to bilan
+                                        if username:
+                                            telethon_cap = html_to_telethon(caption)
                                         else:
-                                            await event.client.send_message(entity=gid, message=telethon_cap, parse_mode='md', link_preview=False)
+                                            # Maxfiy akkaunt - ismni oddiy matn, reply_to bilan
+                                            plain_parts = [f"🚕 **#{order_number}**", f"👤 Mijoz: **{user_name}**"]
+                                            if user_bio:
+                                                plain_parts.append(f"ℹ️ __{user_bio}__")
+                                            if text_content and text_content.strip():
+                                                plain_parts.append(f"💬 __{text_content.strip()}__")
+                                            if phone_to_call:
+                                                plain_parts.append(f"📞 {phone_to_call}")
+                                            telethon_cap = "\n\n".join(plain_parts)
+                                        photos = await event.client.get_profile_photos(sender)
+                                        reply_id = event.id if not username else None
+                                        if photos:
+                                            await event.client.send_file(entity=gid, file=photos[0], caption=telethon_cap, parse_mode='md', link_preview=False, reply_to=reply_id)
+                                        else:
+                                            await event.client.send_message(entity=gid, message=telethon_cap, parse_mode='md', link_preview=False, reply_to=reply_id)
                                         print(f"✅ AKKAUNT PROFIL: ZAKAZ #{order_number} -> {gid}")
                                     except Exception as acc_err:
                                         logger.error(f"Akkaunt profil yuborish: {acc_err}")
