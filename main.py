@@ -1020,22 +1020,22 @@ def create_message_handler(acc: AccountConfig):
                             print(f"DEBUG: Telefon tugmasi qo'shildi: {phone_to_call}")
                         
                         # Foydalanuvchi lichkasiga kirish tugmasi (username yoki user_id orqali)
-                        contact_available = False
+                        contact_row = []
                         if username and username.strip():
-                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"}])
-                            contact_available = True
+                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"})
                             print(f"DEBUG: Username tugmasi qo'shildi: @{username}")
                         elif user_id and user_id > 0:
-                            # Bot orqali kontakt ko'rsatish (tg://user inline tugmada ishlamaydi)
-                            contact_link = f"https://t.me/{acc.bot_username}?start=contact_{user_id}"
-                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": contact_link}])
-                            contact_available = True
+                            # To'g'ridan-to'g'ri foydalanuvchi profiliga utish (tg://user ishlaydi)
+                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"})
                             print(f"DEBUG: Kontakt tugmasi qo'shildi: {user_id}")
                         
-                        # Agar telefon ham yo'q va kontakt ham mumkin emas bo'lsa, xabarni ko'rish tugmasi
-                        if not phone_to_call and not contact_available:
-                            inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
-                            print(f"DEBUG: Guruhdagi xabarni ko'rish tugmasi qo'shildi (kontakt imkoni yo'q)")
+                        # Agar akkaunt maxfiy bo'lsa (yoki telegram xato bersa), xabarni o'zini ko'rish tugmasi har doim chiqadi
+                        if message_link and message_link != "#":
+                            contact_row.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
+                            print(f"DEBUG: Guruhdagi xabarni ko'rish tugmasi qo'shildi: {message_link}")
+                        
+                        if contact_row:
+                            inline_buttons.append(contact_row)
                         
                         # Bloklash tugmasi - faqat valid user_id mavjud bo'lsa
                         if user_id and user_id > 0:
@@ -1187,19 +1187,19 @@ def create_message_handler(acc: AccountConfig):
                         if phone_to_call:
                             inline_buttons.append([{"text": f"� {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
                         
-                        # Foydalanuvchi lichkasiga kirish tugmasi (username yoki user_id orqali)
-                        contact_available = False
+                        # Foydalanuvchi lichkasiga kirish tugmasi
+                        contact_row = []
                         if username and username.strip():
-                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"}])
-                            contact_available = True
+                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"})
                         elif user_id and user_id > 0:
-                            contact_link = f"https://t.me/{acc.bot_username}?start=contact_{user_id}"
-                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": contact_link}])
-                            contact_available = True
+                            contact_row.append({"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"})
                         
-                        # Agar telefon ham yo'q va kontakt ham mumkin emas bo'lsa, xabarni ko'rish tugmasi
-                        if not phone_to_call and not contact_available:
-                            inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
+                        # Xabarning o'ziga link
+                        if message_link and message_link != "#":
+                            contact_row.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
+                            
+                        if contact_row:
+                            inline_buttons.append(contact_row)
                         
                         # Bloklash tugmasi - faqat valid user_id mavjud bo'lsa
                         if user_id and user_id > 0:
