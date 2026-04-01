@@ -1026,16 +1026,11 @@ def create_message_handler(acc: AccountConfig):
                             contact_available = True
                             print(f"DEBUG: Username tugmasi qo'shildi: @{username}")
                         elif user_id and user_id > 0:
-                            # User ID tugmasini qo'shish (faqat juda katta ID larni chiqarib tashlash)
-                            try:
-                                if user_id < 10000000000:  # 10 billion dan kichik bo'lsa valid
-                                    inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"}])
-                                    contact_available = True
-                                    print(f"DEBUG: User ID tugmasi qo'shildi: {user_id}")
-                                else:
-                                    print(f"DEBUG: Juda katta user ID, tugma qo'shilmadi: {user_id}")
-                            except:
-                                print(f"DEBUG: User ID tugmasi qo'shishda xatolik: {user_id}")
+                            # Bot orqali kontakt ko'rsatish (tg://user inline tugmada ishlamaydi)
+                            contact_link = f"https://t.me/{acc.bot_username}?start=contact_{user_id}"
+                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": contact_link}])
+                            contact_available = True
+                            print(f"DEBUG: Kontakt tugmasi qo'shildi: {user_id}")
                         
                         # Agar telefon ham yo'q va kontakt ham mumkin emas bo'lsa, xabarni ko'rish tugmasi
                         if not phone_to_call and not contact_available:
@@ -1197,8 +1192,9 @@ def create_message_handler(acc: AccountConfig):
                         if username and username.strip():
                             inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"}])
                             contact_available = True
-                        elif user_id and user_id > 0 and user_id < 10000000000:
-                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"}])
+                        elif user_id and user_id > 0:
+                            contact_link = f"https://t.me/{acc.bot_username}?start=contact_{user_id}"
+                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": contact_link}])
                             contact_available = True
                         
                         # Agar telefon ham yo'q va kontakt ham mumkin emas bo'lsa, xabarni ko'rish tugmasi
@@ -1351,7 +1347,7 @@ async def run_account(c, acc: AccountConfig):
     logger.info(f"Akkaunt #{acc.profile_id} ulandi: {profile_name}")
     register_account(c, acc)  # Global ro'yxatga qo'shish
     register_account_handlers(c, acc)
-    register_account_commands(c, acc)
+    # register_account_commands(c, acc)  # Private xabarlarga javob bermasin
     await c.run_until_disconnected()
 
 

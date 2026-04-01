@@ -391,6 +391,48 @@ async def start_handler(message: types.Message):
             await message.answer(f"❌ Bloklashda xatolik: {e}")
             return
 
+    # Kontakt ko'rish (deep link orqali)
+    if len(args) > 1 and args[1].startswith('contact_'):
+        try:
+            contact_user_id = int(args[1].replace('contact_', ''))
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT user_name, username, phone FROM users WHERE user_id = ?", (contact_user_id,))
+                user = cursor.fetchone()
+            
+            if user:
+                user_name = user[0] or "Noma'lum"
+                text = f"👤 <b>Mijoz ma'lumotlari:</b>\n\n"
+                text += f"👤 <a href='tg://user?id={contact_user_id}'>{user_name}</a>\n"
+                if user[1]:  # username
+                    text += f"🤙 @{user[1]}\n"
+                if user[2]:  # phone
+                    text += f"📞 +{user[2]}\n"
+                text += f"\n🆔 ID: <code>{contact_user_id}</code>"
+                
+                buttons = []
+                if user[1]:  # username
+                    buttons.append([InlineKeyboardButton(text=f"👤 @{user[1]}", url=f"https://t.me/{user[1]}")])
+                if user[2]:  # phone
+                    phone = user[2].replace(' ', '').replace('-', '')
+                    if not phone.startswith('+'):
+                        phone = '+' + phone
+                    buttons.append([InlineKeyboardButton(text=f"📞 {phone}", url=f"https://onmap.uz/tel/{phone}")])
+                
+                keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+                await message.answer(text, parse_mode='HTML', reply_markup=keyboard)
+            else:
+                await message.answer(
+                    f"👤 <a href='tg://user?id={contact_user_id}'>Mijoz bilan bog'lanish</a>\n\n"
+                    f"🆔 ID: <code>{contact_user_id}</code>",
+                    parse_mode='HTML'
+                )
+            return
+        except Exception as e:
+            logger.error(f"Deep link contact error: {e}")
+            await message.answer(f"❌ Xatolik: {e}")
+            return
+
     if is_admin(message.from_user.id):
         await message.answer(
             "🤖 Userbot boshqaruv paneli\n\n"
