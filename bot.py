@@ -756,8 +756,11 @@ async def add_driver_words(callback: types.CallbackQuery):
     user_states[callback.from_user.id] = 'waiting_driver_words'
     await callback.message.edit_text(
         "🚗 Haydovchi so'zlarini qo'shish:\n\n"
-        "So'zlarni vergul bilan ajratib yozing:\n"
-        "Masalan: ketaman, boraman, olib ketaman"
+        "So'z yoki so'zlarni vergul bilan ajratib yuboring.\n"
+        "Har xabar yangi so'z qo'shadi. Tugatish uchun 'Bekor qilish' bosing.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_add_words")]
+        ])
     )
 
 @dp.callback_query(lambda c: c.data == "add_passenger")
@@ -765,8 +768,21 @@ async def add_passenger_words(callback: types.CallbackQuery):
     user_states[callback.from_user.id] = 'waiting_passenger_words'
     await callback.message.edit_text(
         "🙋♂️ Yo'lovchi so'zlarini qo'shish:\n\n"
-        "So'zlarni vergul bilan ajratib yozing:\n"
-        "Masalan: kerak, ketish kerak, olib keting"
+        "So'z yoki so'zlarni vergul bilan ajratib yuboring.\n"
+        "Har xabar yangi so'z qo'shadi. Tugatish uchun 'Bekor qilish' bosing.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_add_words")]
+        ])
+    )
+
+@dp.callback_query(lambda c: c.data == "cancel_add_words")
+async def cancel_add_words(callback: types.CallbackQuery):
+    user_id = callback.from_user.id
+    if user_id in user_states and user_states[user_id] in ('waiting_driver_words', 'waiting_passenger_words'):
+        del user_states[user_id]
+    await callback.message.edit_text(
+        "✅ So'z qo'shish tugadi.",
+        reply_markup=words_menu()
     )
 
 @dp.callback_query(lambda c: c.data == "delete_driver")
@@ -1517,20 +1533,26 @@ async def handle_text_message(message: types.Message):
     # So'z qo'shish holatlari
     if user_id in user_states:
         if user_states[user_id] == 'waiting_driver_words':
-            words = [w.strip() for w in message.text.split(',')]
+            words = [w.strip() for w in message.text.split(',') if w.strip()]
             for word in words:
-                if word:
-                    save_keyword('driver', word)
-            del user_states[user_id]
-            await message.answer(f"✅ {len(words)} ta haydovchi so'zi qo'shildi!")
+                save_keyword('driver', word)
+            await message.answer(
+                f"✅ {len(words)} ta so'z qo'shildi: {', '.join(words)}\n\nYana so'z yuboring yoki tugatish uchun 'Bekor qilish' bosing.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_add_words")]
+                ])
+            )
             return
         elif user_states[user_id] == 'waiting_passenger_words':
-            words = [w.strip() for w in message.text.split(',')]
+            words = [w.strip() for w in message.text.split(',') if w.strip()]
             for word in words:
-                if word:
-                    save_keyword('passenger', word)
-            del user_states[user_id]
-            await message.answer(f"✅ {len(words)} ta yo'lovchi so'zi qo'shildi!")
+                save_keyword('passenger', word)
+            await message.answer(
+                f"✅ {len(words)} ta so'z qo'shildi: {', '.join(words)}\n\nYana so'z yuboring yoki tugatish uchun 'Bekor qilish' bosing.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_add_words")]
+                ])
+            )
             return
         elif user_states[user_id] == 'waiting_delete_driver_words':
             word = message.text.strip()
