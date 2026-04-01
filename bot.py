@@ -377,8 +377,17 @@ async def start_handler(message: types.Message):
             )
             return
         try:
-            user_id_to_block = int(args[1].replace('block_', ''))
+            parts = args[1].replace('block_', '').split('_')
+            user_id_to_block = int(parts[0])
+            chat_id_to_delete = int(parts[1]) if len(parts) > 1 else None
+            msg_id_to_delete = int(parts[2]) if len(parts) > 2 and parts[2] != 'None' else None
             block_user(user_id_to_block)
+            # Guruhdan zakaz xabarini o'chirish
+            if chat_id_to_delete and msg_id_to_delete:
+                try:
+                    await bot.delete_message(chat_id=chat_id_to_delete, message_id=msg_id_to_delete)
+                except Exception as del_err:
+                    logger.error(f"Xabar o'chirishda xatolik: {del_err}")
             await message.answer(
                 f"🚫 <b>Foydalanuvchi muvaffaqiyatli bloklandi!</b>\n\n"
                 f"🆔 ID: <code>{user_id_to_block}</code>\n\n"

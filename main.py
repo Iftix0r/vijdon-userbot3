@@ -1029,7 +1029,7 @@ def create_message_handler(acc: AccountConfig):
                         if not username and message_link and message_link != "#":
                             inline_buttons.append([{"text": "🔍 Xabarni ko'rish", "url": message_link}])
                         
-                        # Bloklash tugmasi
+                        # Bloklash tugmasi - message_id keyinroq edit qilinadi
                         if user_id and user_id > 0:
                             block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
                             inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
@@ -1056,6 +1056,31 @@ def create_message_handler(acc: AccountConfig):
                                     bot_msg_id = (await resp.json()).get('result', {}).get('message_id')
                                 except:
                                     bot_msg_id = None
+                                # message_id bilan bloklash tugmasini yangilash
+                                if bot_msg_id and user_id and user_id > 0:
+                                    try:
+                                        new_block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}_{gid}_{bot_msg_id}"
+                                        # Tugmalarni yangilash
+                                        new_buttons = []
+                                        for row in inline_buttons:
+                                            new_row = []
+                                            for btn in row:
+                                                if btn.get('text') == '🚫 Bloklash':
+                                                    new_row.append({"text": "🚫 Bloklash", "url": new_block_link})
+                                                else:
+                                                    new_row.append(btn)
+                                            new_buttons.append(new_row)
+                                        edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageReplyMarkup"
+                                        edit_payload = {
+                                            "chat_id": gid,
+                                            "message_id": bot_msg_id,
+                                            "reply_markup": {"inline_keyboard": new_buttons}
+                                        }
+                                        async with session.post(edit_url, json=edit_payload) as edit_resp:
+                                            if edit_resp.status != 200:
+                                                logger.error(f"Edit markup xatolik: {await edit_resp.text()}")
+                                    except Exception as edit_err:
+                                        logger.error(f"Bloklash tugmasi edit: {edit_err}")
                                 # Akkaunt orqali faqat mijoz ismi - bot xabarga reply
                                 if sender:
                                     try:
