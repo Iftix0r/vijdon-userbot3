@@ -3069,10 +3069,8 @@ async def send_blocked_order_handler(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("fast_send_"))
 async def fast_send_handler(callback: types.CallbackQuery):
     try:
-        user_id_str = callback.data.replace("fast_send_", "")
-        original_text = callback.message.text or ""
+        original_text = callback.message.text or callback.message.caption or ""
         
-        # Barcha buyurtma guruhlariga yuborish
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT group_id FROM order_groups')
@@ -3081,11 +3079,16 @@ async def fast_send_handler(callback: types.CallbackQuery):
         if not order_groups:
             order_groups = [ORDER_GROUP_ID]
         
-        buttons = callback.message.reply_markup.inline_keyboard if callback.message.reply_markup else []
-        # Yuborish tugmasini olib tashlash
-        new_buttons = [row for row in buttons if not any("fast_send_" in (b.get("callback_data") or "") for b in row)]
+        # Faqat mijoz ismi tugmasini olish (yuborish tugmasiz)
+        new_buttons = []
+        if callback.message.reply_markup:
+            for row in callback.message.reply_markup.inline_keyboard:
+                new_row = [btn for btn in row if not (btn.callback_data and btn.callback_data.startswith("fast_send_"))]
+                if new_row:
+                    new_buttons.append(new_row)
         keyboard = InlineKeyboardMarkup(inline_keyboard=new_buttons) if new_buttons else None
         
+        sent = 0
         for gid in order_groups:
             try:
                 await bot.send_message(
@@ -3095,12 +3098,12 @@ async def fast_send_handler(callback: types.CallbackQuery):
                     disable_web_page_preview=True,
                     reply_markup=keyboard
                 )
+                sent += 1
             except Exception as e:
                 logger.error(f"Fast send guruh {gid}: {e}")
         
-        await callback.answer("✅ Buyurtmalar guruhiga yuborildi!")
+        await callback.answer(f"✅ {sent} ta guruhga yuborildi!")
         await callback.message.edit_reply_markup(reply_markup=None)
-        logger.info(f"Tez zakaz yuborildi: user {user_id_str}")
     except Exception as e:
         logger.error(f"Fast send error: {e}")
         await callback.answer("❌ Xatolik yuz berdi")
