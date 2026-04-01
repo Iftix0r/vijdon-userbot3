@@ -325,6 +325,35 @@ async def start_handler(message: types.Message):
         await message.answer(text, reply_markup=keyboard, parse_mode='HTML')
         return
     
+    # Tez guruhdan buyurtma guruhiga yuborish (deep link)
+    if len(args) > 1 and args[1].startswith('fastsend_'):
+        try:
+            parts = args[1].replace('fastsend_', '').split('_')
+            src_user_id = int(parts[0])
+            src_chat_id = int(parts[1])
+            src_msg_id = int(parts[2])
+            
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT group_id FROM order_groups')
+                order_groups = [row[0] for row in cursor.fetchall()]
+            if not order_groups:
+                order_groups = [ORDER_GROUP_ID]
+            
+            sent = 0
+            for gid in order_groups:
+                try:
+                    await bot.forward_message(chat_id=gid, from_chat_id=src_chat_id, message_id=src_msg_id)
+                    sent += 1
+                except Exception as e:
+                    logger.error(f"Fastsend forward {gid}: {e}")
+            
+            await message.answer(f"✅ {sent} ta buyurtma guruhiga yuborildi!")
+        except Exception as e:
+            logger.error(f"Fastsend deep link: {e}")
+            await message.answer(f"❌ Xatolik: {e}")
+        return
+
     # Buyurtmani ko'rish (deep link orqali)
     if len(args) > 1 and args[1].startswith('zakaz_'):
         try:
