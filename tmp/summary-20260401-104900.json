@@ -1,0 +1,4 @@
+{
+  "summary": "Modified blocked user handling to completely ignore orders from blocked users instead of sending them to a blocked orders group for review. Blocked users' orders are now silently ignored and not processed anywhere in the system.",
+  "current_status": "Blocked users' orders are now completely filtered out - they won't appear in any groups, blocked orders group, or pending review. The system simply ignores them with a console log message for monitoring purposes."
+}

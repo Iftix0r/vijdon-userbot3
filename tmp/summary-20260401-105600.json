@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the IndentationError on line 1005-1006 by properly indenting the message_parts.append statement after the elif clause. Also corrected the indentation of the caption assignment statement.",
+  "current_status": "Continuing to fix indentation errors throughout the main.py file. Each error is being addressed systematically to ensure proper Python syntax structure."
+}

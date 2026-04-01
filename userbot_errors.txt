@@ -910,3 +910,119 @@ Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: 
 Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
 Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
 Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Bot API xatolik: 400 - {"ok":false,"error_code":400,"description":"Bad Request: BUTTON_USER_INVALID"}
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #13 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #11 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #10 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+Akkaunt #12 xatolik: name 'register_account_handlers' is not defined
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+KRITIK XATOLIK: cannot access local variable 'legacy_groups' where it is not associated with a value
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+KRITIK XATOLIK: name 'c' is not defined
+KRITIK XATOLIK: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+KRITIK XATOLIK: name 'c' is not defined
+KRITIK XATOLIK: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #13 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #10 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #12 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+Akkaunt #11 xatolik: name 'c' is not defined
+KRITIK XATOLIK: name 'c' is not defined
+KRITIK XATOLIK: name 'c' is not defined
+Akkaunt #10 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #10 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #10 bot orqali yuborish: name 'ORDER_GID' is not defined
+Akkaunt #10 bot orqali yuborish: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Main DB error: name 'ORDER_GID' is not defined
+Akkaunt #10 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
+Akkaunt #10 barcha buyurtma guruhlar: name 'ORDER_GID' is not defined
