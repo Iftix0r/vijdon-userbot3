@@ -948,6 +948,8 @@ def create_message_handler(acc: AccountConfig):
         if has_driver_words:
             print(f"🚗 AKK#{acc.profile_id}: HAYDOVCHI - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
             return
+        
+        ai_checked = False
         if not has_passenger_words:
             # 100 belgidan kam bo'lsa OpenAI ga yuborish
             if len(text_content) <= 100 and OPENAI_API_KEY:
@@ -957,6 +959,7 @@ def create_message_handler(acc: AccountConfig):
                     print(f"❌ AKK#{acc.profile_id}: OpenAI - YO'LOVCHI EMAS - IGNORE | {text_content[:30]}...")
                     return
                 print(f"✅ AKK#{acc.profile_id}: OpenAI - YO'LOVCHI - YUBORILMOQDA | {text_content[:30]}...")
+                ai_checked = True
             else:
                 print(f"❓ AKK#{acc.profile_id}: NOMA'LUM - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
                 return
@@ -1021,7 +1024,7 @@ def create_message_handler(acc: AccountConfig):
                 
                 try:
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
+                    header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>" if not ai_checked else "🤖 <b>AI ZAKAZI | HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
                     message_parts = [f"{header} <b>#{order_number}</b>"]
                     message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
                     if username:
