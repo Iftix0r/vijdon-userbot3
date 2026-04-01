@@ -1,0 +1,4 @@
+{
+  "summary": "Added a new feature to delete all driver keywords at once in the words management menu. Added a new button 'Barcha haydovchi so'zlarini o'chirish' and implemented the corresponding callback handler that deletes all driver keywords from the database with admin permission check.",
+  "current_status": "The bot now has a bulk delete feature for driver keywords, allowing admins to quickly clear all driver words instead of deleting them one by one. The feature includes proper error handling and confirmation messages."
+}

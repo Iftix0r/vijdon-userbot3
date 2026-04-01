@@ -145,6 +145,20 @@ def init_keywords_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS blocked_orders_group (
+            group_id INTEGER PRIMARY KEY,
+            added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS pending_orders_group (
+            group_id INTEGER PRIMARY KEY,
+            added_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # Default settings
     cursor.execute('''
         INSERT OR IGNORE INTO settings (setting_key, setting_value)
@@ -208,22 +222,7 @@ def save_incomplete_order(order_number, user_id, user_name, original_message, mi
         logger.error(f"Error saving incomplete order: {e}")
         raise
 
-def get_incomplete_orders(status='pending'):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT id, order_number, user_name, original_message, missing_info, group_name, created_date
-                FROM incomplete_orders 
-                WHERE status = ?
-                ORDER BY created_date DESC
-                LIMIT 20
-            ''', (status,))
-            orders = cursor.fetchall()
-            return orders
-    except Exception as e:
-        logger.error(f"Error getting incomplete orders: {e}")
-        return []
+
 
 def complete_incomplete_order(order_id, admin_id, admin_info):
     try:
@@ -241,18 +240,7 @@ def complete_incomplete_order(order_id, admin_id, admin_info):
         logger.error(f"Error completing incomplete order: {e}")
         return False
 
-def get_incomplete_order_by_id(order_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT * FROM incomplete_orders WHERE id = ?
-            ''', (order_id,))
-            order = cursor.fetchone()
-            return order
-    except Exception as e:
-        logger.error(f"Error getting incomplete order by ID: {e}")
-        return None
+
 
 def delete_incomplete_order(order_id):
     try:
@@ -289,6 +277,7 @@ def words_menu():
             [InlineKeyboardButton(text="➖ Yo'lovchi so'zi o'chirish", callback_data="delete_passenger")],
             [InlineKeyboardButton(text="🚗 Haydovchi so'zi qo'shish", callback_data="add_driver")],
             [InlineKeyboardButton(text="❌ Haydovchi so'zi o'chirish", callback_data="delete_driver")],
+            [InlineKeyboardButton(text="🗑️ Barcha haydovchi so'zlarini o'chirish", callback_data="delete_all_driver")],
             [InlineKeyboardButton(text="📋 Barcha so'zlar", callback_data="list_words")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")]
         ]
@@ -596,24 +585,7 @@ async def incomplete_orders_handler(message: types.Message):
         await message.answer("❌ Sizga ruxsat yo'q!")
         return
     
-    incomplete_orders = get_incomplete_orders('pending')
-    
-    if not incomplete_orders:
-        await message.answer("✅ Barcha zakazlar to'liq!")
-        return
-    
-    text = "⚠️ To'liq bo'lmagan zakazlar:\n\n"
-    for i, order in enumerate(incomplete_orders, 1):
-        order_id, order_number, user_name, original_msg, missing_info, group_name, created_date = order
-        text += f"{i}. <b>Zakaz #{order_number}</b>\n"
-        text += f"   👤 {user_name}\n"
-        text += f"   💬 {original_msg[:50]}...\n"
-        text += f"   ❌ Yetishmayotgan: {missing_info}\n"
-        text += f"   🫂 {group_name}\n"
-        text += f"   📅 {created_date[:16]}\n"
-        text += f"   🆔 ID: {order_id}\n\n"
-    
-    await message.answer(text, parse_mode='HTML')
+    await message.answer("✅ Barcha zakazlar to'liq!")
 
 @dp.message(lambda message: message.text == "✅ Zakazni to'ldirish")
 async def complete_order_handler(message: types.Message):
@@ -758,6 +730,36 @@ async def delete_driver_words(callback: types.CallbackQuery):
     else:
         await callback.message.edit_text("📭 Haydovchi so'zlari yo'q")
 
+@dp.callback_query(lambda c: c.data == "delete_all_driver")
+async def delete_all_driver_words(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Sizga ruxsat yo'q!")
+        return
+    
+    driver_words = get_keywords('driver')
+    if not driver_words:
+        await callback.answer("📭 Haydovchi so'zlari yo'q")
+        return
+    
+    # Barcha haydovchi so'zlarini o'chirish
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM keywords WHERE type = ?', ('driver',))
+            conn.commit()
+        
+        await callback.message.edit_text(
+            f"✅ Barcha haydovchi so'zlari o'chirildi!\n\n"
+            f"Jami o'chirilgan: {len(driver_words)} ta so'z",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_main")]
+            ])
+        )
+        logger.info(f"Admin {callback.from_user.id} barcha haydovchi so'zlarini o'chirdi ({len(driver_words)} ta)")
+    except Exception as e:
+        logger.error(f"Barcha haydovchi so'zlarini o'chirishda xatolik: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
 @dp.callback_query(lambda c: c.data == "delete_passenger")
 async def delete_passenger_words(callback: types.CallbackQuery):
     user_states[callback.from_user.id] = 'waiting_delete_passenger_words'
@@ -852,6 +854,7 @@ async def direction_handler(callback: types.CallbackQuery):
         "from_city": from_city,
         "to_city": to_city
     }
+    await callback.answer()
     
     # Yo'lovchilar soni yoki pochta so'rash
     user_states[callback.from_user.id] = 'waiting_passenger_count'
@@ -925,10 +928,9 @@ async def location_handler(message: types.Message):
     if is_admin(message.from_user.id):
         return
     
-    location = message.location
     taxi_users[message.from_user.id] = {
-        "latitude": location.latitude,
-        "longitude": location.longitude
+        "latitude": message.location.latitude,
+        "longitude": message.location.longitude
     }
     
     await message.answer(
@@ -941,27 +943,28 @@ async def location_handler(message: types.Message):
 async def contact_handler(message: types.Message):
     if is_admin(message.from_user.id):
         return
-        
+    
     if message.from_user.id not in taxi_users:
-        await message.answer("⚠️ Avval /start bosing!")
+        await message.answer("⚠️ /start bosing!")
         return
     
-    phone = message.contact.phone_number
-    taxi_users[message.from_user.id]["phone"] = phone
+    taxi_users[message.from_user.id]["phone"] = message.contact.phone_number
     
-    # Kontaktni bazaga saqlash
+    if "destination" not in taxi_users[message.from_user.id]:
+        await message.answer("🎯 Qayerga borishingizni tanlang:", reply_markup=destination_menu())
+        return
+    
+    # Kontaktni saqlash
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(
-                'INSERT OR REPLACE INTO users (user_id, user_name, phone) VALUES (?, ?, ?)',
-                (message.from_user.id, message.from_user.first_name or 'Foydalanuvchi', phone)
-            )
+            cursor.execute('INSERT OR REPLACE INTO users (user_id, user_name, phone) VALUES (?, ?, ?)',
+                (message.from_user.id, message.from_user.first_name or 'Foydalanuvchi', taxi_users[message.from_user.id]["phone"]))
             conn.commit()
     except Exception as e:
-        logger.error(f"Kontakt saqlashda xatolik: {e}")
+        logger.error(f"Kontakt saqlash: {e}")
     
-    await send_taxi_order(message, message.from_user, phone)
+    await send_taxi_order(message, message.from_user, taxi_users[message.from_user.id]["phone"])
 
 # Zakaz yuborish funksiyasi (yo'nalish tanlash uchun)
 async def send_taxi_order_simple(message, user, phone):
@@ -1046,7 +1049,7 @@ async def send_taxi_order_simple(message, user, phone):
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
+                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (ORDER_GROUP_ID,))
                 order_groups = [row[0] for row in cursor.fetchall()]
                 
                 for group_id in order_groups:
@@ -1116,7 +1119,7 @@ async def send_taxi_order(message, user, phone):
         f"{'='*25}\n"
         f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
         f"📞 {formatted_phone}\n"
-        f"🎯 {user_data['destination']}"
+        f"🎯 {user_data.get('destination', 'Noma\'lum')}"
     )
     
     # Tugmalarni tayyorlash
@@ -1139,7 +1142,7 @@ async def send_taxi_order(message, user, phone):
             f"{'='*25}\n\n"
             f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
             f"📞 <b>Telefon:</b> {formatted_phone}\n"
-            f"🎯 <b>Qayerga:</b> {user_data['destination']}"
+            f"🎯 <b>Qayerga:</b> {user_data.get('destination', 'Noma lum')}"
         )
         
         sent_message = await bot.send_message(
@@ -1172,7 +1175,7 @@ async def send_taxi_order(message, user, phone):
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
+                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (ORDER_GROUP_ID,))
                 order_groups = [row[0] for row in cursor.fetchall()]
                 
                 for group_id in order_groups:
@@ -1249,7 +1252,7 @@ async def send_order_buttons(user_id, user_name, formatted_phone, username):
         try:
             with get_db_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
+                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (ORDER_GROUP_ID,))
                 order_groups = [row[0] for row in cursor.fetchall()]
                 
                 for group_id in order_groups:
@@ -1646,6 +1649,36 @@ async def handle_text_message(message: types.Message):
                 await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
             del user_states[user_id]
             return
+        elif user_states[user_id] == 'waiting_pending_group_id':
+            try:
+                group_id = int(message.text.strip())
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('DELETE FROM pending_orders_group')
+                    cursor.execute('INSERT INTO pending_orders_group (group_id) VALUES (?)', (group_id,))
+                    conn.commit()
+                await message.answer(f"✅ Noma'lum zakazlar guruhi o'rnatildi: {group_id}")
+            except ValueError:
+                await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
+            except Exception as e:
+                await message.answer(f"❌ Xatolik: {e}")
+            del user_states[user_id]
+            return
+        elif user_states[user_id] == 'waiting_blocked_group_id':
+            try:
+                group_id = int(message.text.strip())
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('DELETE FROM blocked_orders_group')
+                    cursor.execute('INSERT INTO blocked_orders_group (group_id) VALUES (?)', (group_id,))
+                    conn.commit()
+                await message.answer(f"✅ Blocklar guruhi o'rnatildi: {group_id}")
+            except ValueError:
+                await message.answer("❌ Noto'g'ri format! Raqam kiriting.")
+            except Exception as e:
+                await message.answer(f"❌ Xatolik: {e}")
+            del user_states[user_id]
+            return
         elif user_states[user_id] == 'waiting_order_header':
             if not is_admin(user_id):
                 await message.answer("❌ Ruxsat yo'q!")
@@ -1930,6 +1963,8 @@ def groups_menu():
             [InlineKeyboardButton(text="📤 Buyurtma guruhlari", callback_data="list_order_groups")],
             [InlineKeyboardButton(text="➕ Buyurtma guruh qo'shish", callback_data="add_order_group_prompt")],
             [InlineKeyboardButton(text="➖ Buyurtma o'chirish", callback_data="remove_order_group_prompt")],
+            [InlineKeyboardButton(text="🚫 Blocklar guruhi", callback_data="blocked_orders_group_menu")],
+            [InlineKeyboardButton(text="❓ Noma'lum zakazlar guruhi", callback_data="pending_orders_group_menu")],
             [InlineKeyboardButton(text="📢 Reklama guruhlari (Haydovchilar)", callback_data="list_reklama_groups")],
             [InlineKeyboardButton(text="➕ Reklama guruh qo'shish", callback_data="add_reklama_group_prompt")],
             [InlineKeyboardButton(text="➖ Reklama guruh o'chirish", callback_data="remove_reklama_group_prompt")],
@@ -1972,8 +2007,21 @@ async def settings_handler(message: types.Message):
         await message.answer("❌ Sizga ruxsat yo'q!")
         return
     
+    # Bot guruh holatini tekshirish
+    try:
+        chat_info = await bot.get_chat(ORDER_GROUP_ID)
+        bot_status = "✅ Bot guruhda"
+        group_name = chat_info.title if hasattr(chat_info, 'title') else f"ID: {ORDER_GROUP_ID}"
+    except Exception as e:
+        bot_status = "❌ Bot guruhga kiritilmagan"
+        group_name = f"ID: {ORDER_GROUP_ID}"
+        logger.error(f"Bot guruh tekshiruvi: {e}")
+    
     await message.answer(
-        "🔧 Admin Panel:",
+        f"🔧 Admin Panel:\n\n"
+        f"📤 Buyurtma guruhi: {group_name}\n"
+        f"🤖 Bot holati: {bot_status}\n\n"
+        f"⚠️ Agar bot guruhga kiritilmagan bo'lsa, botni guruhga admin sifatida qo'shing!",
         reply_markup=admin_menu()
     )
 
@@ -2226,12 +2274,41 @@ def unblock_user(user_id):
 
 @dp.callback_query(lambda c: c.data == "list_order_groups")
 async def list_order_groups_handler(callback: types.CallbackQuery):
-    order_groups = load_order_groups()
-    if order_groups:
-        groups_text = "📤 Buyurtma guruhlari:\n" + "\n".join([f"• {g}" for g in order_groups])
-    else:
-        groups_text = "📭 Buyurtma guruhlari yo'q"
-    await callback.message.edit_text(groups_text)
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT group_id FROM order_groups')
+            order_groups = [row[0] for row in cursor.fetchall()]
+        
+        if order_groups:
+            groups_text = f"📤 Buyurtma guruhlari ({len(order_groups)} ta):\n\n"
+            for i, gid in enumerate(order_groups, 1):
+                # Guruh nomini olishga harakat qilish
+                try:
+                    chat_info = await bot.get_chat(gid)
+                    group_name = chat_info.title if hasattr(chat_info, 'title') else f"ID: {gid}"
+                    bot_status = "✅"
+                except:
+                    group_name = f"ID: {gid}"
+                    bot_status = "❌"
+                
+                groups_text += f"{i}. {bot_status} {group_name}\n"
+                groups_text += f"   <code>{gid}</code>\n\n"
+            
+            groups_text += "✅ - Bot guruhda\n❌ - Bot guruhga kiritilmagan"
+        else:
+            groups_text = "📭 Buyurtma guruhlari yo'q"
+        
+        await callback.message.edit_text(
+            groups_text, 
+            parse_mode='HTML',
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Orqaga", callback_data="groups_menu")]
+            ])
+        )
+    except Exception as e:
+        logger.error(f"List order groups error: {e}")
+        await callback.message.edit_text("❌ Xatolik yuz berdi")
 
 @dp.callback_query(lambda c: c.data == "add_order_group_prompt")
 async def add_order_group_prompt_handler(callback: types.CallbackQuery):
@@ -2393,7 +2470,7 @@ async def send_demo_orders():
             try:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute('SELECT group_id FROM order_groups LIMIT 3')  # Faqat 3 ta guruhga
+                    cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ? LIMIT 3', (ORDER_GROUP_ID,))  # Faqat 3 ta guruhga
                     order_groups = [row[0] for row in cursor.fetchall()]
                     
                     for group_id in order_groups:
@@ -2511,4 +2588,407 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 
+
+
+
+@dp.callback_query(lambda c: c.data == "pending_orders_group_menu")
+async def pending_orders_group_menu_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT group_id FROM pending_orders_group LIMIT 1')
+            result = cursor.fetchone()
+            current_group = result[0] if result else "O'rnatilmagan"
+    except:
+        current_group = "O'rnatilmagan"
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Noma'lum zakazlar guruhini o'rnatish", callback_data="set_pending_group")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="groups_menu")]
+        ]
+    )
+    
+    await callback.message.edit_text(
+        f"❓ <b>Noma'lum zakazlar guruhi</b>\n\n"
+        f"Na yo'lovchi na haydovchi deb aniqlanmagan zakazlar shu guruhga tushadi.\n\n"
+        f"<b>Hozirgi guruh:</b> <code>{current_group}</code>",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "set_pending_group")
+async def set_pending_group_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    user_states[callback.from_user.id] = 'waiting_pending_group_id'
+    await callback.message.edit_text(
+        "❓ <b>Noma'lum zakazlar guruhini o'rnatish</b>\n\n"
+        "Guruh ID sini yuboring:\n"
+        "Misol: -1001234567890",
+        parse_mode='HTML'
+    )
+
+
+@dp.callback_query(lambda c: c.data == "blocked_orders_group_menu")
+async def blocked_orders_group_menu_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT group_id FROM blocked_orders_group LIMIT 1')
+            result = cursor.fetchone()
+            current_group = result[0] if result else "O'rnatilmagan"
+    except:
+        current_group = "O'rnatilmagan"
+    
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="➕ Blocklar guruhini o'rnatish", callback_data="set_blocked_group")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="groups_menu")]
+        ]
+    )
+    
+    await callback.message.edit_text(
+        f"🚫 <b>Blocklar guruhi</b>\n\n"
+        f"Bloklangan odamlardan kelgan zakazlar shu guruhga tushadi.\n\n"
+        f"<b>Hozirgi guruh:</b> <code>{current_group}</code>",
+        reply_markup=keyboard,
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data == "set_blocked_group")
+async def set_blocked_group_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    user_states[callback.from_user.id] = 'waiting_blocked_group_id'
+    await callback.message.edit_text(
+        "🚫 <b>Blocklar guruhini o'rnatish</b>\n\n"
+        "Guruh ID sini yuboring:\n"
+        "Misol: -1001234567890",
+        parse_mode='HTML'
+    )
+
+@dp.callback_query(lambda c: c.data.startswith("send_as_passenger_"))
+async def send_as_passenger_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        parts = callback.data.replace("send_as_passenger_", "").split("_")
+        user_id = int(parts[0])
+        order_number = int(parts[1])
+        
+        # Zakazni yo'lovchi sifatida yuborish
+        await send_order_as_type(user_id, order_number, "passenger", callback)
+        
+    except Exception as e:
+        logger.error(f"Send as passenger error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+@dp.callback_query(lambda c: c.data.startswith("send_as_driver_"))
+async def send_as_driver_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        parts = callback.data.replace("send_as_driver_", "").split("_")
+        user_id = int(parts[0])
+        order_number = int(parts[1])
+        
+        # Zakazni haydovchi sifatida yuborish (reklama guruhlarga)
+        await send_order_as_type(user_id, order_number, "driver", callback)
+        
+    except Exception as e:
+        logger.error(f"Send as driver error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+@dp.callback_query(lambda c: c.data.startswith("ignore_order_"))
+async def ignore_order_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        parts = callback.data.replace("ignore_order_", "").split("_")
+        user_id = int(parts[0])
+        order_number = int(parts[1])
+        
+        await callback.answer("✅ Zakaz ignore qilindi!")
+        await callback.message.edit_text(
+            f"❌ <b>ZAKAZ #{order_number} IGNORE QILINDI</b>\n\n"
+            f"Admin tomonidan ignore qilindi: {callback.from_user.first_name}",
+            parse_mode='HTML'
+        )
+        logger.info(f"Admin {callback.from_user.id} zakaz #{order_number} ni ignore qildi")
+        
+    except Exception as e:
+        logger.error(f"Ignore order error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+async def send_order_as_type(user_id, order_number, order_type, callback):
+    """Zakazni belgilangan tur sifatida yuborish"""
+    try:
+        # Foydalanuvchi ma'lumotlarini olish
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT z.message, u.user_name, u.phone, u.username
+                FROM zakazlar z
+                LEFT JOIN users u ON z.user_id = u.user_id
+                WHERE z.order_number = ? AND z.user_id = ?
+                LIMIT 1
+            ''', (order_number, user_id))
+            result = cursor.fetchone()
+        
+        if not result:
+            await callback.answer("❌ Zakaz topilmadi")
+            return
+        
+        message_text, user_name, phone, username = result
+        
+        if order_type == "passenger":
+            # Yo'lovchi sifatida buyurtma guruhlariga yuborish
+            header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
+            order_msg = (
+                f"{header} <b>#{order_number}</b>\n\n"
+                f"👤 <a href='tg://user?id={user_id}'>{user_name or 'Foydalanuvchi'}</a>\n"
+                f"💬 <i>{message_text}</i>\n\n"
+                f"⚠️ <i>Admin tomonidan yo'lovchi sifatida yuborildi</i>"
+            )
+            
+            # Tugmalar
+            buttons = []
+            if phone:
+                p = phone.replace(' ', '').replace('-', '')
+                if not p.startswith('+'): p = '+998' + p if p.startswith('998') else '+' + p
+                buttons.append([InlineKeyboardButton(text=f"📞 {p}", url=f"https://onmap.uz/tel/{p}")])
+            if username:
+                buttons.append([InlineKeyboardButton(text=f"👤 @{username}", url=f"https://t.me/{username}")])
+            buttons.append([InlineKeyboardButton(text="💬 Lichkaga yozish", callback_data=f"send_private_{user_id}_{order_number}")])
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+            
+            # Buyurtma guruhlariga yuborish
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT group_id FROM order_groups')
+                order_groups = [row[0] for row in cursor.fetchall()]
+            
+            for group_id in order_groups:
+                try:
+                    await bot.send_message(
+                        chat_id=group_id,
+                        text=order_msg,
+                        parse_mode='HTML',
+                        reply_markup=keyboard
+                    )
+                except Exception as e:
+                    logger.error(f"Guruh {group_id} ga yuborish xato: {e}")
+            
+            await callback.answer("✅ Yo'lovchi sifatida yuborildi!")
+            
+        elif order_type == "driver":
+            # Haydovchi sifatida reklama guruhlarga yuborish
+            reklama_msg = (
+                f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
+                f"<i>{message_text}</i>\n\n"
+                f"<b>Buyurtmalar guruhiga qo'shilish uchun 👇</b>"
+            )
+            
+            admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else "#"
+            reklama_buttons = [[InlineKeyboardButton(text="👨‍💻 Operator bilan bog'lanish", url=admin_link)]]
+            reklama_keyboard = InlineKeyboardMarkup(inline_keyboard=reklama_buttons)
+            
+            # Reklama guruhlarga yuborish
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT group_id FROM reklama_groups')
+                reklama_groups = [row[0] for row in cursor.fetchall()]
+            
+            for group_id in reklama_groups:
+                try:
+                    await bot.send_message(
+                        chat_id=group_id,
+                        text=reklama_msg,
+                        parse_mode='HTML',
+                        reply_markup=reklama_keyboard
+                    )
+                except Exception as e:
+                    logger.error(f"Reklama guruh {group_id} ga yuborish xato: {e}")
+            
+            await callback.answer("✅ Haydovchi sifatida reklama guruhlarga yuborildi!")
+        
+        # Xabarni yangilash
+        await callback.message.edit_text(
+            f"✅ <b>ZAKAZ #{order_number} YUBORILDI</b>\n\n"
+            f"Tur: {'Yo\'lovchi' if order_type == 'passenger' else 'Haydovchi'}\n"
+            f"Admin: {callback.from_user.first_name}",
+            parse_mode='HTML'
+        )
+        
+        logger.info(f"Admin {callback.from_user.id} zakaz #{order_number} ni {order_type} sifatida yubordi")
+        
+    except Exception as e:
+        logger.error(f"Send order as type error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+
+@dp.callback_query(lambda c: c.data.startswith("view_message_"))
+async def view_message_handler(callback: types.CallbackQuery):
+    try:
+        parts = callback.data.replace("view_message_", "").split("_")
+        user_id = int(parts[0])
+        order_number = int(parts[1])
+        
+        # Zakazni bazadan olish
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT z.message, u.user_name, z.group_name, z.sana
+                FROM zakazlar z
+                LEFT JOIN users u ON z.user_id = u.user_id
+                WHERE z.order_number = ? AND z.user_id = ?
+                LIMIT 1
+            ''', (order_number, user_id))
+            result = cursor.fetchone()
+        
+        if not result:
+            await callback.answer("❌ Zakaz topilmadi")
+            return
+        
+        message_text, user_name, group_name, sana = result
+        
+        # Xabar ma'lumotlarini ko'rsatish
+        message_info = f"📄 <b>Zakaz #{order_number} xabari:</b>\n\n"
+        message_info += f"👤 <b>Foydalanuvchi:</b> {user_name or 'Noma\'lum'}\n"
+        message_info += f"🫂 <b>Guruh:</b> {group_name or 'Noma\'lum'}\n"
+        message_info += f"📅 <b>Sana:</b> {sana[:16] if sana else 'Noma\'lum'}\n\n"
+        message_info += f"💬 <b>Xabar matni:</b>\n<i>{message_text}</i>"
+        
+        await callback.message.answer(message_info, parse_mode='HTML')
+        await callback.answer("✅ Xabar ko'rsatildi!")
+        
+    except Exception as e:
+        logger.error(f"View message error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+
+@dp.callback_query(lambda c: c.data.startswith("send_private_"))
+async def send_private_message_handler(callback: types.CallbackQuery):
+    try:
+        parts = callback.data.replace("send_private_", "").split("_")
+        user_id = int(parts[0])
+        order_number = int(parts[1])
+        
+        # Zakazni bazadan olish
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT z.message, u.user_name, u.phone, u.username
+                FROM zakazlar z
+                LEFT JOIN users u ON z.user_id = u.user_id
+                WHERE z.order_number = ? AND z.user_id = ?
+                LIMIT 1
+            ''', (order_number, user_id))
+            result = cursor.fetchone()
+        
+        if not result:
+            await callback.answer("❌ Zakaz topilmadi")
+            return
+        
+        message_text, user_name, phone, username = result
+        
+        # Mijoz ma'lumotlarini ko'rsatish
+        contact_info = f"👤 <b>Mijoz ma'lumotlari:</b>\n\n"
+        contact_info += f"📝 Ism: {user_name or 'Noma\'lum'}\n"
+        if username:
+            contact_info += f"🤙 Username: @{username}\n"
+        if phone:
+            contact_info += f"📞 Telefon: +{phone}\n"
+        contact_info += f"\n💬 <b>Zakaz #{order_number}:</b>\n<i>{message_text}</i>\n\n"
+        contact_info += f"ℹ️ Mijozga yozish uchun yuqoridagi ma'lumotlardan foydalaning."
+        
+        await callback.message.answer(contact_info, parse_mode='HTML')
+        await callback.answer("✅ Mijoz ma'lumotlari ko'rsatildi!")
+        
+    except Exception as e:
+        logger.error(f"Send private message error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
+
+
+@dp.callback_query(lambda c: c.data.startswith("send_blocked_"))
+async def send_blocked_order_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    
+    try:
+        parts = callback.data.replace("send_blocked_", "").split("_")
+        user_id = int(parts[0])
+        order_number = int(parts[1])
+        
+        # Zakazni bazadan olish
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT z.message, u.user_name, u.phone, u.username
+                FROM zakazlar z
+                LEFT JOIN users u ON z.user_id = u.user_id
+                WHERE z.order_number = ? AND z.user_id = ?
+                LIMIT 1
+            ''', (order_number, user_id))
+            result = cursor.fetchone()
+        
+        if not result:
+            await callback.answer("❌ Zakaz topilmadi")
+            return
+        
+        message_text, user_name, phone, username = result
+        
+        # Buyurtma guruhga yuborish
+        order_msg = (
+            f"🚕 <b>ZAKAZ #{order_number}</b>\n\n"
+            f"👤 {user_name or 'Foydalanuvchi'}\n"
+            f"💬 {message_text}\n\n"
+            f"⚠️ <i>Bloklangan odamdan kelgan zakaz (admin tomonidan tasdiqlangan)</i>"
+        )
+        
+        buttons = []
+        if phone:
+            p = phone.replace(' ', '').replace('-', '')
+            if not p.startswith('+'): p = '+998' + p if p.startswith('998') else '+' + p
+            buttons.append([InlineKeyboardButton(text=f"📞 {p}", url=f"https://onmap.uz/tel/{p}")])
+        if username:
+            buttons.append([InlineKeyboardButton(text=f"👤 @{username}", url=f"https://t.me/{username}")])
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        
+        await bot.send_message(
+            chat_id=ORDER_GROUP_ID,
+            text=order_msg,
+            parse_mode='HTML',
+            reply_markup=keyboard
+        )
+        
+        await callback.answer("✅ Zakaz buyurtma guruhga yuborildi!")
+        await callback.message.edit_reply_markup(reply_markup=None)
+        logger.info(f"Admin {callback.from_user.id} bloklangan zakaz #{order_number} ni yubordi")
+        
+    except Exception as e:
+        logger.error(f"Send blocked order error: {e}")
+        await callback.answer("❌ Xatolik yuz berdi")
 

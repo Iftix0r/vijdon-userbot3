@@ -1,0 +1,4 @@
+{
+  "summary": "Removed the 'Lichkaga yozish' (Send private message) button from both main order groups and additional order groups as requested by the user, keeping only phone, user profile, blocking, and view message buttons.",
+  "current_status": "Order messages now display streamlined buttons without the private messaging option - only phone contact, user profile access, blocking functionality, and message viewing for orders without contact info."
+}

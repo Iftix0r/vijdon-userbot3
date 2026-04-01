@@ -1,0 +1,4 @@
+{
+  "summary": "Enhanced console logging to provide detailed, clear information about message processing. Added specific messages for driver messages (ignored), passenger messages (processed), blocked users, and detailed status for each group where orders are sent. Console now shows message type detection, user details, phone numbers, button counts, and success/failure status for both main and additional order groups, making it much easier to monitor and debug the system.",
+  "current_status": "Console logging is now comprehensive and informative, showing clear status messages for message type detection (driver vs passenger), blocking status, order sending to main and additional groups, fallback mechanisms, and detailed error reporting. This will make monitoring and troubleshooting much more effective."
+}

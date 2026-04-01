@@ -10,6 +10,7 @@ import re
 import logging
 from dotenv import load_dotenv
 from contextlib import contextmanager
+from shared_accounts import register_account, send_to_any_available
 
 
 load_dotenv()
@@ -53,6 +54,11 @@ MAX_PROCESSED_CACHE = 10000
 user_message_times = {}
 FLOOD_LIMIT = 3
 FLOOD_WINDOW = 60 # 1 minut
+
+# Global message deduplication: {(chat_id, message_id): timestamp}
+global_processed_messages = {}
+GLOBAL_CACHE_SIZE = 50000
+GLOBAL_CACHE_CLEANUP_INTERVAL = 3600  # 1 soat
 
 
 # ========== UMUMIY DB (profiles, keywords, admins) ==========
@@ -724,7 +730,25 @@ def create_message_handler(acc: AccountConfig):
         if not event.is_group:
             return
         
-        # Har akkaunt uchun ALOHIDA dublikat tekshiruv
+        # GLOBAL dublikat tekshiruv - birinchi bo'lib tekshirish
+        global_msg_key = (event.chat_id, event.id)
+        current_time = asyncio.get_event_loop().time()
+        
+        if global_msg_key in global_processed_messages:
+            # Bu xabar boshqa akkaunt tomonidan qayta ishlangan
+            return
+        
+        # Global keshga qo'shish
+        global_processed_messages[global_msg_key] = current_time
+        
+        # Global keshni tozalash (hajmi katta bo'lsa)
+        if len(global_processed_messages) > GLOBAL_CACHE_SIZE:
+            # Eski xabarlarni olib tashlash (1 soatdan eski)
+            old_keys = [k for k, v in global_processed_messages.items() if current_time - v > GLOBAL_CACHE_CLEANUP_INTERVAL]
+            for k in old_keys:
+                del global_processed_messages[k]
+        
+        # Har akkaunt uchun ALOHIDA dublikat tekshiruv (qo'shimcha himoya)
         msg_key = (event.chat_id, event.id)
         if msg_key in acc.processed_messages:
             return
@@ -790,11 +814,13 @@ def create_message_handler(acc: AccountConfig):
         chat = None
         try:
             sender = await event.get_sender()
-        except:
+        except Exception as e:
+            logger.warning(f"Sender olishda xatolik: {e}")
             pass
         try:
             chat = await event.get_chat()
-        except:
+        except Exception as e:
+            logger.warning(f"Chat olishda xatolik: {e}")
             pass
         
         user_id = 0
@@ -840,6 +866,38 @@ def create_message_handler(acc: AccountConfig):
             if phones:
                 break
         
+        # Foydalanuvchi ma'lumotlarini olish
+        clean_user_name = ''
+        username = ''
+        phone = ''
+        if sender:
+            try:
+                # Channel yoki User obyektini tekshirish
+                if hasattr(sender, 'first_name'):
+                    # Bu User obyekti
+                    clean_user_name = f"{sender.first_name or ''}"
+                    if hasattr(sender, 'last_name') and sender.last_name:
+                        clean_user_name += f" {sender.last_name}"
+                    if hasattr(sender, 'username') and sender.username:
+                        username = sender.username
+                    if hasattr(sender, 'phone') and sender.phone:
+                        phone = sender.phone
+                elif hasattr(sender, 'title'):
+                    # Bu Channel obyekti
+                    clean_user_name = sender.title or 'Kanal'
+                    if hasattr(sender, 'username') and sender.username:
+                        username = sender.username
+                else:
+                    clean_user_name = 'Noma\'lum'
+            except Exception as e:
+                logger.error(f"Sender ma'lumotlarini olishda xatolik: {e}")
+                clean_user_name = 'Noma\'lum foydalanuvchi'
+        
+        # Chat title ni olish
+        chat_title = 'Nomaʼlum guruh'
+        if chat and hasattr(chat, 'title') and chat.title:
+            chat_title = chat.title
+        
         # Kalit so'z tekshirish 
         acc._load_keywords()  # Yangilash
         text_lower = text_content.lower().strip()
@@ -852,6 +910,7 @@ def create_message_handler(acc: AccountConfig):
                     cursor.execute('INSERT OR REPLACE INTO blocked_users (user_id) VALUES (?)', (user_id,))
                     conn.commit()
                 logger.info(f"Akkaunt #{acc.profile_id}: Foydalanuvchi bloklandi (xabar orqali): {user_id}")
+                print(f"🚫 AKK#{acc.profile_id}: Foydalanuvchi {user_id} bloklandi (xabar orqali)")
             except Exception as e:
                 logger.error(f"Akkaunt #{acc.profile_id}: Bloklashda xatolik: {e}")
             return
@@ -859,39 +918,70 @@ def create_message_handler(acc: AccountConfig):
         has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
         has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
         
+        # Xabar turini aniqlash va console'ga chiqarish
         if has_driver_words:
+            print(f"🚗 AKK#{acc.profile_id}: HAYDOVCHI - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
             return
         if not has_passenger_words:
+            print(f"❓ AKK#{acc.profile_id}: NOMA'LUM - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
             return
+        
+        # Yo'lovchi xabari aniqlandi
+        print(f"🙋‍♂️ AKK#{acc.profile_id}: YO'LOVCHI - YUBORILMOQDA | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
         
         user_type = '🙋♂️ Yolovchi'
         is_blocked = acc.is_user_blocked(user_id)
-        
-        clean_user_name = ''
-        username = ''
-        phone = ''
-        if sender:
-            clean_user_name = f"{sender.first_name or ''}"
-            if hasattr(sender, 'last_name') and sender.last_name:
-                clean_user_name += f" {sender.last_name}"
-            if hasattr(sender, 'username') and sender.username:
-                username = sender.username
-            if hasattr(sender, 'phone') and sender.phone:
-                phone = sender.phone
-        
-        chat_title = 'Nomaʼlum guruh'
-        if chat and hasattr(chat, 'title') and chat.title:
-            chat_title = chat.title
         
         # Akkaunt bazasiga saqlash
         order_number = acc.save_user_and_zakaz(user_id, clean_user_name.strip(), username, phone, user_type, text_content, chat_title, event.chat_id)
         
         if is_blocked:
+            print(f"🚫 AKK#{acc.profile_id}: BLOKLANGAN foydalanuvchi - Blocklar guruhiga yuborildi")
+            print(f"   👤 {clean_user_name or 'Noma\'lum'} | 📞 {phone or 'Yo\'q'}")
+            # Bloklangan odamdan zakaz - blocklar guruhiga Bot API orqali yuborish
+            try:
+                with get_main_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT group_id FROM blocked_orders_group LIMIT 1')
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        blocked_group_id = result[0]
+                        
+                        blocked_msg = (
+                            f"🚫 <b>BLOKLANGAN ODAMDAN ZAKAZ #{order_number}</b>\n\n"
+                            f"👤 {clean_user_name.strip() or 'Foydalanuvchi'}\n"
+                            f"💬 {text_content}\n\n"
+                            f"⚠️ Bu odam bloklangan. Yuborish uchun tugmani bosing."
+                        )
+                        
+                        # Bot API orqali yuborish
+                        async with aiohttp.ClientSession() as session:
+                            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                            payload = {
+                                "chat_id": blocked_group_id,
+                                "text": blocked_msg,
+                                "parse_mode": "HTML",
+                                "reply_markup": {
+                                    "inline_keyboard": [[
+                                        {"text": "✅ Buyurtma guruhga yuborish", "callback_data": f"send_blocked_{user_id}_{order_number}"}
+                                    ]]
+                                }
+                            }
+                            async with session.post(url, json=payload) as resp:
+                                if resp.status == 200:
+                                    logger.info(f"Bloklangan zakaz #{order_number} blocklar guruhiga yuborildi")
+                                    print(f"✅ Bloklangan zakaz #{order_number} blocklar guruhiga yuborildi")
+                                else:
+                                    txt = await resp.text()
+                                    logger.error(f"Blocklar guruhiga yuborish xato: {resp.status} - {txt}")
+                                    print(f"❌ Blocklar guruhiga yuborish xato: {resp.status}")
+            except Exception as e:
+                logger.error(f"Blocklar guruhiga yuborish: {e}")
+                print(f"❌ Blocklar guruhiga yuborish xatolik: {e}")
             return
         
-        # Tugmalar tayyorlash (Userbot orqali yuborish uchun)
-        buttons = []
-        row1 = []
+        # Telefon raqam tayyorlash
         phone_to_call = None
         if phones:
             phone_to_call = phones[0].replace(' ', '').replace('-', '')
@@ -901,26 +991,8 @@ def create_message_handler(acc: AccountConfig):
         if phone_to_call:
             if phone_to_call.startswith('998'): phone_to_call = '+' + phone_to_call
             elif not phone_to_call.startswith('+'): phone_to_call = '+998' + phone_to_call
-            row1.append(Button.url("📞 Qo'ngiroq", f"https://onmap.uz/tel/{phone_to_call}"))
-        
-        if message_link and message_link != "#":
-            row1.append(Button.url("🔍 Xabarni ko'rish", message_link))
-        if row1: buttons.append(row1)
-        
-        row2 = []
-        if user_id and user_id > 0:
-            row2.append(Button.url(f"👤 {user_name}", f"tg://user?id={user_id}"))
-        elif username:
-            row2.append(Button.url(f"👤 {user_name}", f"https://t.me/{username}"))
-        if row2: buttons.append(row2)
-        
-        if user_id and user_id > 0:
-            block_url = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-            buttons.append([Button.url("🚫 Bloklash", block_url)])
-        
-        keyboard = buttons if buttons else None
 
-        # AKKAUNT O'Z BUYURTMA GURUHIGA YUBORISH
+        # BOT ORQALI BUYURTMA GURUHIGA YUBORISH (tugmalar bilan)
         ORDER_GID = acc.order_group_id
         
         # Bio olish
@@ -934,9 +1006,9 @@ def create_message_handler(acc: AccountConfig):
         
         try:
             user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-            header = get_order_message_header()
+            header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
             message_parts = [f"{header} <b>#{order_number}</b>"]
-            message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
+            message_parts.append(f"👤 {user_name}")  # Oddiy matn sifatida
             if username:
                 message_parts.append(f"🤙 @{username}")
             if user_bio:
@@ -954,29 +1026,95 @@ def create_message_handler(acc: AccountConfig):
                 message_parts.append(f"📞 +{sender.phone}")
             
             caption = "\n\n".join(message_parts)
-            if message_link and message_link != "#":
-                block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-                caption += f"\n\n<a href='{message_link}'>👀 ko'rish</a> | <a href='{block_link}'>🚫 Bloklash</a>"
             
-            if sender:
-                try:
-                    profile_photos = await event.client.get_profile_photos(sender)
-                    if profile_photos:
-                        await event.client.send_file(entity=ORDER_GID, file=profile_photos[0], caption=caption, parse_mode='html', link_preview=False, buttons=keyboard)
-                    else:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False, buttons=keyboard)
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> {ORDER_GID} - {user_name}")
-                    logger.info(f"Akkaunt #{acc.profile_id} Zakaz #{order_number} yuborildi")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} profil rasmi: {e}")
+            # Bot API orqali tugmalar bilan yuborish
+            async with aiohttp.ClientSession() as session:
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                
+                # Tugmalarni tayyorlash
+                inline_buttons = []
+                
+                # Telefon tugmasi (har doim qo'shish)
+                if phone_to_call:
+                    inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
+                    print(f"DEBUG: Telefon tugmasi qo'shildi: {phone_to_call}")
+                
+                # Foydalanuvchi lichkasiga kirish tugmasi (username yoki user_id orqali)
+                contact_available = False
+                if username and username.strip():
+                    inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"}])
+                    contact_available = True
+                    print(f"DEBUG: Username tugmasi qo'shildi: @{username}")
+                elif user_id and user_id > 0:
+                    # User ID tugmasini qo'shish (faqat juda katta ID larni chiqarib tashlash)
                     try:
-                        await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False, buttons=keyboard)
-                    except Exception as e2:
-                        logger.error(f"Akkaunt #{acc.profile_id} matn yuborish: {e2}")
-            else:
-                await event.client.send_message(entity=ORDER_GID, message=caption, parse_mode='html', link_preview=False, buttons=keyboard)
+                        if user_id < 10000000000:  # 10 billion dan kichik bo'lsa valid
+                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"}])
+                            contact_available = True
+                            print(f"DEBUG: User ID tugmasi qo'shildi: {user_id}")
+                        else:
+                            print(f"DEBUG: Juda katta user ID, tugma qo'shilmadi: {user_id}")
+                    except:
+                        print(f"DEBUG: User ID tugmasi qo'shishda xatolik: {user_id}")
+                
+                # Agar telefon ham yo'q va kontakt ham mumkin emas bo'lsa, xabarni ko'rish tugmasi
+                if not phone_to_call and not contact_available:
+                    inline_buttons.append([{"text": "📄 Guruhdagi xabarni ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
+                    print(f"DEBUG: Guruhdagi xabarni ko'rish tugmasi qo'shildi (kontakt imkoni yo'q)")
+                
+                # Bloklash tugmasi - faqat valid user_id mavjud bo'lsa
+                if user_id and user_id > 0:
+                    block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
+                    inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
+                    print(f"DEBUG: Bloklash tugmasi qo'shildi: {block_link}")
+                
+                # Agar hali ham tugma yo'q bo'lsa, kamida xabarni ko'rish tugmasi
+                if not inline_buttons:
+                    inline_buttons.append([{"text": "📄 Guruhdagi xabarni ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
+                    print("DEBUG: Default guruhdagi xabarni ko'rish tugmasi qo'shildi")
+                
+                payload = {
+                    "chat_id": ORDER_GID,
+                    "text": caption,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                    "reply_markup": {"inline_keyboard": inline_buttons}
+                }
+                
+                print(f"DEBUG: Payload tugmalar: {len(inline_buttons)} ta")
+                print(f"DEBUG: Bot token mavjud: {'Ha' if BOT_TOKEN else 'Yo\'q'}")
+                print(f"DEBUG: Guruh ID: {ORDER_GID}")
+                
+                async with session.post(url, json=payload) as resp:
+                    response_text = await resp.text()
+                    if resp.status == 200:
+                        print(f"✅ BOT ASOSIY GURUH: ZAKAZ #{order_number} -> {ORDER_GID}")
+                        print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'} | 🎯 Tugmalar: {len(inline_buttons)} ta")
+                        logger.info(f"Bot orqali Zakaz #{order_number} yuborildi")
+                    else:
+                        logger.error(f"Bot API xatolik: {resp.status} - {response_text}")
+                        print(f"❌ BOT API XATOLIK: {resp.status} - {response_text}")
+                        
+                        # Agar bot guruhga kira olmasa, userbot orqali yuborish
+                        if resp.status == 400 and "chat not found" in response_text.lower():
+                            logger.warning(f"Bot {ORDER_GID} guruhga kira olmadi, userbot orqali yuborish...")
+                            print(f"⚠️ Bot guruhga kira olmadi, userbot orqali fallback...")
+                            try:
+                                # Userbot orqali yuborish (fallback)
+                                success, used_acc_id = await send_to_any_available(ORDER_GID, caption, sender, None)
+                                if success:
+                                    print(f"✅ FALLBACK USERBOT: AKK#{used_acc_id} ZAKAZ #{order_number} -> {ORDER_GID}")
+                                    print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'}")
+                                    logger.info(f"Fallback: Akkaunt #{used_acc_id} Zakaz #{order_number} yuborildi")
+                                else:
+                                    logger.error(f"Hech bir akkaunt ham {ORDER_GID} guruhga kira olmadi")
+                                    print(f"❌ FALLBACK HAM ISHLAMADI: Hech bir akkaunt {ORDER_GID} guruhga kira olmadi")
+                            except Exception as fallback_error:
+                                logger.error(f"Fallback yuborish xatolik: {fallback_error}")
+                                print(f"❌ FALLBACK XATOLIK: {fallback_error}")
         except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} buyurtma yuborish: {e}")
+            logger.error(f"Akkaunt #{acc.profile_id} bot orqali yuborish: {e}")
+            print(f"DEBUG: Exception in bot sending: {e}")
         
         # Reklama va qo'shimcha guruhlar (Faqat Reklama guruhlari uchun Bot API kerak bo'lishi mumkin, lekin user so'ragani uchun asosiy tugmalarni o'chiraman)
         try:
@@ -985,8 +1123,8 @@ def create_message_handler(acc: AccountConfig):
                 
                 # Reklama guruhlarga yuborish
                 try:
-                    # Yangilash (admin paneldan o'zgargan bo'lsa)
-                    acc._load_reklama_groups()
+                    # Reklama guruhlar config'dan olinadi
+                    acc._load_config()
                     
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
                     special_message = f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
@@ -1016,18 +1154,34 @@ def create_message_handler(acc: AccountConfig):
         except Exception as e:
             logger.error(f"Akkaunt #{acc.profile_id} reklama bot session: {e}")
         
-        # Qo'shimcha buyurtma guruhlarga akkaunt orqali
+        # Qo'shimcha buyurtma guruhlarga bot orqali (UMUMIY BAZADAN) - GLOBAL DEDUPLICATION bilan
         try:
-            with acc.get_db() as conn:
+            # Umumiy bazadan qo'shimcha guruhlarni olish
+            with get_main_db() as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
+                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (ORDER_GID,))
                 extra_groups = [row[0] for row in cursor.fetchall()]
+            
+            print(f"DEBUG: Qo'shimcha guruhlar topildi: {len(extra_groups)} ta - {extra_groups}")
+            
+            if extra_groups:
+                # Global deduplication uchun qo'shimcha guruhlar kaliti
+                additional_groups_key = f"additional_groups_{order_number}_{user_id}"
+                
+                if additional_groups_key in global_processed_messages:
+                    # Bu zakaz qo'shimcha guruhlarga allaqachon yuborilgan
+                    print(f"DEBUG: Zakaz #{order_number} qo'shimcha guruhlarga allaqachon yuborilgan")
+                    return
+                
+                # Global keshga qo'shish
+                global_processed_messages[additional_groups_key] = current_time
+                print(f"DEBUG: Zakaz #{order_number} qo'shimcha guruhlar uchun global keshga qo'shildi")
             
             for gid in extra_groups:
                 try:
                     user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
-                    msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
+                    msg_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b> <b>#{order_number}</b>"]
+                    msg_parts.append(f"👤 {user_name}")  # Oddiy matn sifatida
                     if username:
                         msg_parts.append(f"🤙 @{username}")
                     if user_bio:
@@ -1042,69 +1196,100 @@ def create_message_handler(acc: AccountConfig):
                     elif sender and hasattr(sender, 'phone') and sender.phone:
                         msg_parts.append(f"📞 +{sender.phone}")
                     cap = "\n\n".join(msg_parts)
-                    if message_link and message_link != "#":
-                        blk_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-                        cap += f"\n\n<a href='{message_link}'>👀 ko'rish</a> | <a href='{blk_link}'>🚫 Bloklash</a>"
                     
-                    if sender:
-                        try:
-                            photos = await event.client.get_profile_photos(sender)
-                            if photos:
-                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False, buttons=keyboard)
+                    # Bot API orqali qo'shimcha guruhlarga yuborish
+                    async with aiohttp.ClientSession() as session:
+                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                        
+                        # Tugmalarni tayyorlash
+                        inline_buttons = []
+                        
+                        # Telefon tugmasi
+                        if phone_to_call:
+                            inline_buttons.append([{"text": f"� {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
+                        
+                        # Foydalanuvchi lichkasiga kirish tugmasi (username yoki user_id orqali)
+                        contact_available = False
+                        if username and username.strip():
+                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"https://t.me/{username}"}])
+                            contact_available = True
+                        elif user_id and user_id > 0 and user_id < 10000000000:
+                            inline_buttons.append([{"text": "👤 Mijoz bilan bog'lanish", "url": f"tg://user?id={user_id}"}])
+                            contact_available = True
+                        
+                        # Agar telefon ham yo'q va kontakt ham mumkin emas bo'lsa, xabarni ko'rish tugmasi
+                        if not phone_to_call and not contact_available:
+                            inline_buttons.append([{"text": "📄 Guruhdagi xabarni ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
+                        
+                        # Bloklash tugmasi - faqat valid user_id mavjud bo'lsa
+                        if user_id and user_id > 0:
+                            block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
+                            inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
+                        
+                        # Agar hali ham tugma yo'q bo'lsa, kamida xabarni ko'rish tugmasi
+                        if not inline_buttons:
+                            inline_buttons.append([{"text": "📄 Guruhdagi xabarni ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
+                        
+                        payload = {
+                            "chat_id": gid,
+                            "text": cap,
+                            "parse_mode": "HTML",
+                            "disable_web_page_preview": True
+                        }
+                        
+                        if inline_buttons:
+                            payload["reply_markup"] = {"inline_keyboard": inline_buttons}
+                        
+                        async with session.post(url, json=payload) as resp:
+                            if resp.status == 200:
+                                print(f"✅ BOT QO'SHIMCHA GURUH: ZAKAZ #{order_number} -> {gid}")
+                                print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'} | 🎯 Tugmalar: {len(inline_buttons)} ta")
                             else:
-                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                        except:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                    else:
-                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
-        except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruhlar: {e}")
-        
-        # Qo'shimcha buyurtma guruhlarga akkaunt orqali
-        try:
-            with acc.get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT group_id FROM order_groups')
-                extra_groups = [row[0] for row in cursor.fetchall()]
-            
-            for gid in extra_groups:
-                try:
-                    user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    msg_parts = [f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b> <b>#{order_number}</b>"]
-                    msg_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-                    if username:
-                        msg_parts.append(f"🤙 @{username}")
-                    if user_bio:
-                        msg_parts.append(f"📝 <b><i>{user_bio}</i></b>")
-                    if text_content and text_content.strip():
-                        msg_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-                    if phones:
-                        pn = phones[0].replace(' ', '').replace('-', '')
-                        if pn.startswith('998'): pn = '+' + pn
-                        elif not pn.startswith('+998'): pn = '+998' + pn
-                        msg_parts.append(f"📞 {pn}")
-                    elif sender and hasattr(sender, 'phone') and sender.phone:
-                        msg_parts.append(f"📞 +{sender.phone}")
-                    cap = "\n\n".join(msg_parts)
-                    if message_link and message_link != "#":
-                        blk_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-                        cap += f"\n\n<a href='{message_link}'>👀 ko'rish</a> | <a href='{blk_link}'>🚫 Bloklash</a>"
+                                error_text = await resp.text()
+                                # Agar tugma xatoligi bo'lsa, tugmasiz qayta yuborish
+                                if "BUTTON_USER_INVALID" in error_text and inline_buttons:
+                                    logger.warning(f"Tugma xatoligi, tugmasiz qayta yuborish: {gid}")
+                                    payload_no_buttons = {
+                                        "chat_id": gid,
+                                        "text": cap,
+                                        "parse_mode": "HTML",
+                                        "disable_web_page_preview": True
+                                    }
+                                    async with session.post(url, json=payload_no_buttons) as retry_resp:
+                                        if retry_resp.status == 200:
+                                            print(f"✅ BOT QO'SHIMCHA GURUH (tugmasiz): ZAKAZ #{order_number} -> {gid}")
+                                        else:
+                                            retry_error = await retry_resp.text()
+                                            logger.error(f"Qo'shimcha guruh {gid} tugmasiz ham xato: {retry_resp.status} - {retry_error}")
+                                            print(f"❌ QO'SHIMCHA GURUH {gid} TUGMASIZ HAM XATO: {retry_resp.status}")
+                                else:
+                                    logger.error(f"Qo'shimcha guruh {gid} bot API xatolik: {resp.status} - {error_text}")
+                                    print(f"❌ QO'SHIMCHA GURUH {gid} XATOLIK: {resp.status} - {error_text}")
+                                    
+                                    # Agar bot guruhga kira olmasa, userbot orqali yuborish
+                                    if resp.status == 400 and "chat not found" in error_text.lower():
+                                        logger.warning(f"Bot {gid} guruhga kira olmadi, userbot orqali yuborish...")
+                                        print(f"⚠️ Bot {gid} guruhga kira olmadi, userbot orqali fallback...")
+                                        try:
+                                            # Userbot orqali yuborish (fallback)
+                                            if sender:
+                                                try:
+                                                    photos = await event.client.get_profile_photos(sender)
+                                                    if photos:
+                                                        await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False)
+                                                    else:
+                                                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                                except:
+                                                    await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                            else:
+                                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False)
+                                            print(f"✅ FALLBACK USERBOT: AKK#{acc.profile_id} ZAKAZ #{order_number} -> {gid}")
+                                            print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'}")
+                                        except Exception as fallback_error:
+                                            logger.error(f"Fallback qo'shimcha guruh {gid}: {fallback_error}")
+                                            print(f"❌ FALLBACK XATOLIK {gid}: {fallback_error}")
                     
-                    if sender:
-                        try:
-                            photos = await event.client.get_profile_photos(sender)
-                            if photos:
-                                await event.client.send_file(entity=gid, file=photos[0], caption=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                            else:
-                                await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                        except:
-                            await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                    else:
-                        await event.client.send_message(entity=gid, message=cap, parse_mode='html', link_preview=False, buttons=keyboard)
-                    print(f"✅ AKK#{acc.profile_id} ZAKAZ #{order_number} -> qo'shimcha {gid}")
+                    await asyncio.sleep(0.1)  # Rate limiting uchun
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} qo'shimcha guruh {gid}: {e}")
         except Exception as e:
@@ -1213,6 +1398,7 @@ async def run_account(c, acc: AccountConfig):
     print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
     print(f"     💾 Baza: {acc.db_file}")
     logger.info(f"Akkaunt #{acc.profile_id} ulandi: {profile_name}")
+    register_account(c, acc)  # Global ro'yxatga qo'shish
     register_account_handlers(c, acc)
     register_account_commands(c, acc)
     await c.run_until_disconnected()

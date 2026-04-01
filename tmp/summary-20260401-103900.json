@@ -1,0 +1,4 @@
+{
+  "summary": "Added 'Xabarni ko'rish' (View message) button for orders where no contact information is available. This button appears when there are no other contact buttons and shows the original message content, user name, group name, and date when clicked, providing drivers with order details even when direct contact isn't possible.",
+  "current_status": "The bot now provides a fallback option for orders without contact information, ensuring drivers can always access order details through the view message functionality, improving usability for anonymous or incomplete orders."
+}

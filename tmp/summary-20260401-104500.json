@@ -1,0 +1,4 @@
+{
+  "summary": "Added intelligent 'Xabarni ko'rish' (View message) button logic that appears when there's no phone number and no way to contact the customer (private account or no contact info). This button shows the original group message content when contact is impossible, providing drivers with order details even for private/anonymous customers.",
+  "current_status": "The system now intelligently displays contact options - phone buttons for available numbers, contact buttons for accessible users, and view message buttons for private/anonymous orders, ensuring drivers always have access to order information regardless of customer privacy settings."
+}

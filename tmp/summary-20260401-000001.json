@@ -1,0 +1,4 @@
+{
+  "summary": "Updated the order message format to remove 'YANGI BUYURTMA KELDI!' text from the header, making it cleaner and shorter. Changed from '🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI! #1234' to '🚕 ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 #1234'. Applied this change to both main order group and additional order groups to ensure consistent formatting across all groups.",
+  "current_status": "Order message format has been simplified and standardized. The system now sends orders through bot API with inline buttons and the new cleaner header format. All order groups will receive messages in the same consistent format with convenient interaction buttons for drivers."
+}

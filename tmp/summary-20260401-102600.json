@@ -1,0 +1,4 @@
+{
+  "summary": "Completely removed the pending group functionality for unknown orders. Now the system works strictly based on keywords - messages that don't match passenger or driver keywords are simply ignored instead of being sent to a pending group for manual review.",
+  "current_status": "The bot now operates in strict keyword-only mode. Unknown messages are ignored rather than processed through a pending system, making the classification purely automatic based on predefined keywords."
+}

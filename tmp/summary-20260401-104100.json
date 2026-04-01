@@ -1,0 +1,4 @@
+{
+  "summary": "User confirmed that the 'Lichkaga yozish' (Send private message) button should not be included. The button has already been removed from all order message locations in the previous changes.",
+  "current_status": "The private messaging button has been completely removed from the system. Order messages now only show phone, user profile, blocking, and view message buttons as appropriate."
+}

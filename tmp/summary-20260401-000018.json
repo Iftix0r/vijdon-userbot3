@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the 'Noma'lum zakazlar guruhi' (Unknown Orders Group) button functionality by relocating the pending_orders_group_menu_handler and set_pending_group_handler functions to the correct position in bot.py before the main execution block. The handlers were placed after the main execution which prevented them from being registered properly.",
+  "current_status": "All admin panel functionality should now work correctly including the unknown orders group management. The system can now properly handle unknown message types by sending them to a designated pending group where admins can manually classify and process them."
+}

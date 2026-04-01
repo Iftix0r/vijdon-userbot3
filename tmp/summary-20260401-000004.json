@@ -1,0 +1,4 @@
+{
+  "summary": "User reported that buttons are not appearing in order messages. Added comprehensive debug logging to identify the issue, including checks for button creation, bot token availability, group ID verification, and API response status. Enhanced the bot API sending logic to always include at least one button and provide detailed debugging information to troubleshoot why buttons might not be showing up in the group messages.",
+  "current_status": "Added extensive debugging to the bot API message sending system to identify why buttons are not appearing. The system now logs button creation, API calls, and responses to help diagnose the issue. Next step is to run the userbot and check logs to see if bot API is working or if fallback to userbot is occurring."
+}

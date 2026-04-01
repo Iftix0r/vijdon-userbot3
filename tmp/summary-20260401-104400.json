@@ -1,0 +1,4 @@
+{
+  "summary": "Changed the user contact button text from displaying the user's name (like 'Iftixor To'ychiyev') to a generic 'Mijoz bilan bog'lanish' (Contact customer) text for both username and user ID buttons in all order groups.",
+  "current_status": "All user contact buttons now display consistent 'Mijoz bilan bog'lanish' text instead of individual user names, providing a cleaner and more professional appearance while maintaining the same functionality."
+}

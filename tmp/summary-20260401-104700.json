@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the additional groups delivery issue by moving the global deduplication check after retrieving the groups list and adding debug logging. This ensures orders are sent to all additional groups equally while still preventing duplicates from multiple accounts processing the same message.",
+  "current_status": "The system now properly distributes orders to all configured order groups with improved debugging to track delivery status, ensuring equal distribution while maintaining deduplication protection."
+}

@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the 'Lichkaga yozish' button functionality by changing it from attempting to send automatic private messages via userbot to displaying customer contact information. The button now shows customer details (name, username, phone) and order information for drivers to manually contact customers.",
+  "current_status": "The private message button now works by displaying customer contact information instead of trying to automatically send messages, providing a more reliable way for drivers to get customer details for manual contact."
+}

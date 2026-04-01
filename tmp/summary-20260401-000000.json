@@ -1,0 +1,4 @@
+{
+  "summary": "Modified the userbot system to send orders through the bot API with inline buttons instead of through userbot accounts. Changed the main message handler in main.py to use Bot API (sendMessage) with inline keyboard buttons for phone calls, usernames, message viewing, and blocking. Also updated additional order groups to use the same bot API approach, ensuring all orders are sent with convenient buttons for drivers to interact with.",
+  "current_status": "Successfully converted the userbot order sending system from account-based messaging to bot-based messaging with inline buttons. The system now sends orders to groups through the bot API with properly formatted buttons for phone calls, user profiles, message viewing, and blocking functionality. This provides a more convenient and user-friendly interface for taxi drivers."
+}

@@ -1,0 +1,4 @@
+{
+  "summary": "Added automatic retry mechanism for BUTTON_USER_INVALID errors in additional groups section. When button validation fails, the system now automatically retries sending the message without buttons, ensuring orders are still delivered even when user ID buttons are invalid.",
+  "current_status": "The bot now handles BUTTON_USER_INVALID errors gracefully by automatically falling back to sending messages without buttons when button validation fails, preventing order delivery failures while maintaining functionality."
+}

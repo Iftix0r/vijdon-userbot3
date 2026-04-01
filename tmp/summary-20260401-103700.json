@@ -1,0 +1,4 @@
+{
+  "summary": "Added message content preview to console output, showing the first 30 characters of each message along with account ID, message type, action, and user name for complete real-time monitoring of bot activity.",
+  "current_status": "Console now displays comprehensive single-line status including message preview, allowing operators to quickly identify and monitor all message processing activity with full context."
+}

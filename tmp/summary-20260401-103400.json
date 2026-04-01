@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the BUTTON_USER_INVALID error by adding validation for user IDs before creating inline buttons. Added checks to ensure user IDs are within valid range (less than 1 billion) before creating tg://user buttons, preventing the bot API error when dealing with invalid user IDs.",
+  "current_status": "The bot now validates user IDs before creating inline buttons, preventing BUTTON_USER_INVALID errors that were occurring when trying to create buttons for invalid or non-existent users."
+}

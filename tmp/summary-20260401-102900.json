@@ -1,0 +1,4 @@
+{
+  "summary": "Implemented global message deduplication system to prevent the same order from being processed multiple times by different accounts. Added a global cache that tracks processed messages across all accounts using (chat_id, message_id) as unique keys, with automatic cleanup of old entries.",
+  "current_status": "The bot now has both per-account and global deduplication systems. Each message will only be processed once across all accounts, preventing duplicate orders from being sent when multiple accounts monitor the same groups."
+}

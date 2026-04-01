@@ -1,0 +1,4 @@
+{
+  "summary": "Added 'Lichkaga yozish' (Send Private Message) button functionality. When drivers click this button, the userbot automatically sends a personalized message to the customer via private chat, introducing the driver and referencing their specific order. Implemented callback handler in bot.py to process the button clicks and send messages through available userbot accounts. Added the button to both main order groups and additional order groups for consistent functionality.",
+  "current_status": "Order messages now include a 'Lichkaga yozish' button that allows drivers to automatically contact customers privately through userbot accounts. The system sends a professional introduction message mentioning the driver's name and the specific order details. This provides a convenient way for drivers to initiate direct communication with customers."
+}

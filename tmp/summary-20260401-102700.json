@@ -1,0 +1,4 @@
+{
+  "summary": "Removed all console output messages for unknown and driver messages. Now the system silently ignores both driver messages and unknown messages without printing any logs to the console, keeping the output clean and showing only passenger message processing.",
+  "current_status": "The bot now operates silently for ignored messages - no console spam for unknown or driver messages. Only passenger messages will generate console output when being processed and sent to order groups."
+}

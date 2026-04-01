@@ -1,0 +1,4 @@
+{
+  "summary": "Added back concise console output to show message processing status in real-time. Now displays single-line messages showing account ID, message type (driver/passenger/unknown), action (ignore/sending), and user name for quick monitoring of bot activity.",
+  "current_status": "Console now shows compact real-time status of message processing, allowing operators to quickly see which messages are being ignored vs sent, helping with faster order management and monitoring."
+}

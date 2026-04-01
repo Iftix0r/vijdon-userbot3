@@ -1,0 +1,4 @@
+{
+  "summary": "Changed the button text from 'Xabarni ko'rish' to 'Guruhdagi xabarni ko'rish' (View group message) for orders where contact is not possible due to private accounts or missing contact information, providing clearer indication that it shows the original group message.",
+  "current_status": "The system now displays 'Guruhdagi xabarni ko'rish' buttons for private/anonymous orders, ensuring drivers can access original message content when direct contact methods are unavailable."
+}

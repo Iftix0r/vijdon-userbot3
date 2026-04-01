@@ -1,0 +1,4 @@
+{
+  "summary": "Fixed the issue where additional order groups were not receiving messages. Changed the code to load additional order groups from the main database (zakazlar.db) instead of individual account databases. Added debug logging to show how many additional groups are found and enhanced the admin panel to display order groups with their bot status (whether bot is added to each group or not).",
+  "current_status": "Additional order groups should now receive messages properly as the system loads them from the correct main database. Added comprehensive group status checking in admin panel to help identify which groups the bot has access to. The debug logs will show exactly how many additional groups are found and processed for each order."
+}

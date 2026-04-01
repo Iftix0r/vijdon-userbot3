@@ -1,0 +1,4 @@
+{
+  "summary": "Removed the 'Xabarni ko'rish' (View Message) button from both main order groups and additional order groups as requested by the user. The button layout is now cleaner with only essential buttons: phone call, username profile, private message sending, and blocking functionality.",
+  "current_status": "Order message buttons have been streamlined to include only the most necessary functions: phone calling, profile viewing, private messaging through userbot, and user blocking. The 'View Message' button has been completely removed from all order groups to simplify the interface for drivers."
+}

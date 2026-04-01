@@ -1,0 +1,4 @@
+{
+  "summary": "Identified that the current multi-account system monitors all groups from all connected profiles simultaneously, which can result in a very high volume of orders. Each account automatically adds and monitors every group it's added to, meaning if there are 3 profiles with 50 groups each, the system monitors 150 groups total and processes orders from all of them. This could lead to overwhelming order volume and needs consideration for optimization through group deduplication, profile-based group distribution, or order limiting mechanisms.",
+  "current_status": "The system is working as designed but may be processing too many orders due to cumulative group monitoring across all profiles. The user needs to decide whether to implement group management optimizations or maintain the current high-volume approach depending on their business needs."
+}

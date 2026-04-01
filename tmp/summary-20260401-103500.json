@@ -1,0 +1,4 @@
+{
+  "summary": "Relaxed the user ID validation from 1 billion to 10 billion to allow more valid Telegram user IDs through, as the previous validation was too strict and filtering out legitimate users, causing messages to be sent without buttons.",
+  "current_status": "Adjusted user ID validation to be less restrictive while still preventing invalid IDs that cause BUTTON_USER_INVALID errors. Messages should now include buttons for most valid users."
+}
