@@ -637,6 +637,7 @@ def reklama_matndan_olib_tashlash(text):
     return re.sub(r'\s+', ' ', t).strip()
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+FAST_GROUP_ID = -5270167448  # Tez yuborish guruhi - kalit so'zsiz
 
 async def openai_check_passenger(text):
     """OpenAI orqali xabar yo'lovchimi yoki yo'qligini tekshirish"""
@@ -944,7 +945,34 @@ def create_message_handler(acc: AccountConfig):
         has_driver_words = any(w.lower() in text_lower for w in acc.keywords['driver'])
         has_passenger_words = any(w.lower() in text_lower for w in acc.keywords['passenger'])
         
-        # Xabar turini aniqlash va console'ga chiqarish
+        # Tez guruhga yuborish (kalit so'zsiz, 80 belgidan kam)
+        if len(text_content) <= 80 and not has_driver_words:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    fast_caption = f"🚕 <b>#{order_number}</b>\n\n"
+                    fast_caption += f"👤 <a href='tg://user?id={user_id}'>{clean_user_name or 'Foydalanuvchi'}</a>\n\n"
+                    fast_caption += f"💬 <b><i>{text_content.strip()}</i></b>"
+                    fast_buttons = []
+                    if username:
+                        fast_buttons.append([{"text": f"👤 {clean_user_name}", "url": f"https://t.me/{username}"}])
+                    else:
+                        fast_buttons.append([{"text": f"👤 {clean_user_name}", "url": f"tg://user?id={user_id}"}])
+                    fast_payload = {
+                        "chat_id": FAST_GROUP_ID,
+                        "text": fast_caption,
+                        "parse_mode": "HTML",
+                        "disable_web_page_preview": True,
+                        "reply_markup": {"inline_keyboard": fast_buttons}
+                    }
+                    async with session.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json=fast_payload) as resp:
+                        if resp.status == 200:
+                            print(f"✅ TEZ GURUH: #{order_number} -> {FAST_GROUP_ID}")
+                        else:
+                            logger.error(f"Tez guruh xatolik: {await resp.text()}")
+            except Exception as e:
+                logger.error(f"Tez guruh yuborish: {e}")
+        
+        # Xabar turini aniqlash
         if has_driver_words:
             print(f"🚗 AKK#{acc.profile_id}: HAYDOVCHI - IGNORE | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
             return
