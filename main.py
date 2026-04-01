@@ -1014,29 +1014,28 @@ def create_message_handler(acc: AccountConfig):
                         # Tugmalarni tayyorlash
                         inline_buttons = []
                         
-                        # Telefon tugmasi (har doim qo'shish)
+                        # Mijoz ismi tugmasi - bosilganda profil ochiladi
+                        if user_id and user_id > 0:
+                            if username:
+                                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
+                            else:
+                                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={user_id}"}])
+                        
+                        # Telefon tugmasi
                         if phone_to_call:
                             inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
-                            print(f"DEBUG: Telefon tugmasi qo'shildi: {phone_to_call}")
                         
                         # Xabarni ko'rish tugmasi
-                        contact_row = []
                         if message_link and message_link != "#":
-                            contact_row.append({"text": "🔍 Xabarni ko'rish", "url": message_link})
+                            inline_buttons.append([{"text": "🔍 Xabarni ko'rish", "url": message_link}])
                         
-                        if contact_row:
-                            inline_buttons.append(contact_row)
-                        
-                        # Bloklash tugmasi - faqat valid user_id mavjud bo'lsa
+                        # Bloklash tugmasi
                         if user_id and user_id > 0:
                             block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
                             inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
-                            print(f"DEBUG: Bloklash tugmasi qo'shildi: {block_link}")
                         
-                        # Agar hali ham tugma yo'q bo'lsa, kamida xabarni ko'rish tugmasi
                         if not inline_buttons:
                             inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
-                            print("DEBUG: Default guruhdagi xabarni ko'rish tugmasi qo'shildi")
                         
                         payload = {
                             "chat_id": gid,
@@ -1045,10 +1044,6 @@ def create_message_handler(acc: AccountConfig):
                             "disable_web_page_preview": True,
                             "reply_markup": {"inline_keyboard": inline_buttons}
                         }
-                        
-                        print(f"DEBUG: Payload tugmalar: {len(inline_buttons)} ta")
-                        print(f"DEBUG: Bot token mavjud: {'Ha' if BOT_TOKEN else 'Yo\'q'}")
-                        print(f"DEBUG: Guruh ID: {gid}")
                         
                         async with session.post(url, json=payload) as resp:
                             response_text = await resp.text()
