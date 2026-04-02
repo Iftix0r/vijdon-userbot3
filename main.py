@@ -835,7 +835,7 @@ def create_message_handler(acc: AccountConfig):
                     _btn_url = f"https://t.me/{_uusername}" if _uusername else f"tg://user?id={_uid}"
                     _buttons = [
                         [{"text": f"👤 {_uname}", "url": _btn_url}],
-                        [{"text": "🚕 Buyurtma guruhiga yuborish", "url": f"https://t.me/{acc.bot_username}?start=fastsend_{_uid}_{event.chat_id}_{event.id}"}]
+                        [{"text": "✅ Zakaz ketadi", "url": f"https://t.me/{acc.bot_username}?start=fastsend_{_uid}_{event.chat_id}_{event.id}"}]
                     ]
                     async with aiohttp.ClientSession() as _s:
                         await _s.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
