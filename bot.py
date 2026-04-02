@@ -392,8 +392,6 @@ async def start_handler(message: types.Message):
             inline_buttons = []
             if username:
                 inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
-            else:
-                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={src_user_id}"}])
             if phone:
                 p = str(phone).replace(' ', '').replace('-', '')
                 if not p.startswith('+'):
