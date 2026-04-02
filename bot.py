@@ -332,22 +332,85 @@ async def start_handler(message: types.Message):
             src_user_id = int(parts[0])
             src_chat_id = int(parts[1])
             src_msg_id = int(parts[2])
-            
+
+            # Bazadan foydalanuvchi ma'lumotlarini olish
+            user_name = "Foydalanuvchi"
+            username = None
+            phone = None
+            order_text = None
+
             with get_db_connection() as conn:
                 cursor = conn.cursor()
+                # Oxirgi zakaz - shu user_id bo'yicha
+                cursor.execute("""
+                    SELECT z.message, u.user_name, u.username, u.phone
+                    FROM zakazlar z
+                    LEFT JOIN users u ON z.user_id = u.user_id
+                    WHERE z.user_id = ?
+                    ORDER BY z.sana DESC LIMIT 1
+                """, (src_user_id,))
+                row = cursor.fetchone()
+                if row:
+                    order_text = row[0]
+                    user_name = row[1] or "Foydalanuvchi"
+                    username = row[2]
+                    phone = row[3]
+
                 cursor.execute('SELECT group_id FROM order_groups')
                 order_groups = [row[0] for row in cursor.fetchall()]
+
             if not order_groups:
                 order_groups = [ORDER_GROUP_ID]
-            
+
+            # Xabar matni tayyorlash
+            caption = f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>\n\n"
+            caption += f"👤 <a href='tg://user?id={src_user_id}'>{user_name}</a>\n"
+            if username:
+                caption += f"🤙 @{username}\n"
+            if order_text:
+                caption += f"\n💬 <b><i>{order_text}</i></b>\n"
+            if phone:
+                p = phone.replace(' ', '').replace('-', '')
+                if not p.startswith('+'):
+                    p = '+998' + p if p.startswith('998') else '+' + p
+                caption += f"\n📞 {p}"
+
+            # Tugmalar
+            inline_buttons = []
+            if username:
+                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
+            else:
+                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={src_user_id}"}])
+            if phone:
+                p = phone.replace(' ', '').replace('-', '')
+                if not p.startswith('+'):
+                    p = '+998' + p if p.startswith('998') else '+' + p
+                inline_buttons.append([{"text": f"📞 {p}", "url": f"https://onmap.uz/tel/{p}"}])
+
+            import aiohttp as _aiohttp
             sent = 0
             for gid in order_groups:
                 try:
-                    await bot.forward_message(chat_id=gid, from_chat_id=src_chat_id, message_id=src_msg_id)
-                    sent += 1
+                    async with _aiohttp.ClientSession() as session:
+                        payload = {
+                            "chat_id": gid,
+                            "text": caption,
+                            "parse_mode": "HTML",
+                            "disable_web_page_preview": True,
+                            "reply_markup": {"inline_keyboard": inline_buttons}
+                        }
+                        async with session.post(
+                            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+                            json=payload
+                        ) as resp:
+                            if resp.status == 200:
+                                sent += 1
+                            else:
+                                err = await resp.text()
+                                logger.error(f"Fastsend send {gid}: {resp.status} - {err}")
                 except Exception as e:
-                    logger.error(f"Fastsend forward {gid}: {e}")
-            
+                    logger.error(f"Fastsend send {gid}: {e}")
+
             await message.answer(f"✅ {sent} ta buyurtma guruhiga yuborildi!")
         except Exception as e:
             logger.error(f"Fastsend deep link: {e}")
