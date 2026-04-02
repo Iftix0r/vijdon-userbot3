@@ -330,47 +330,60 @@ async def start_handler(message: types.Message):
         try:
             parts = args[1].replace('fastsend_', '').split('_')
             src_user_id = int(parts[0])
-            src_chat_id = int(parts[1])
-            src_msg_id = int(parts[2])
 
-            # Bazadan foydalanuvchi ma'lumotlarini olish
+            # Barcha DB lardan foydalanuvchi ma'lumotlarini qidirish
             user_name = "Foydalanuvchi"
             username = None
             phone = None
             order_text = None
 
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                # Oxirgi zakaz - shu user_id bo'yicha
-                cursor.execute("""
-                    SELECT z.message, u.user_name, u.username, u.phone
-                    FROM zakazlar z
-                    LEFT JOIN users u ON z.user_id = u.user_id
-                    WHERE z.user_id = ?
-                    ORDER BY z.sana DESC LIMIT 1
-                """, (src_user_id,))
-                row = cursor.fetchone()
-                if row:
-                    order_text = row[0]
-                    user_name = row[1] or "Foydalanuvchi"
-                    username = row[2]
-                    phone = row[3]
+            db_files = ['zakazlar.db'] + [
+                f for f in os.listdir('.') if f.startswith('zakazlar_account') and f.endswith('.db')
+            ]
+            for db_file in db_files:
+                try:
+                    conn = sqlite3.connect(db_file, timeout=10)
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT z.message, u.user_name, u.username, u.phone
+                        FROM zakazlar z
+                        LEFT JOIN users u ON z.user_id = u.user_id
+                        WHERE z.user_id = ?
+                        ORDER BY z.sana DESC LIMIT 1
+                    """, (src_user_id,))
+                    row = cursor.fetchone()
+                    conn.close()
+                    if row:
+                        order_text = row[0]
+                        user_name = row[1] or "Foydalanuvchi"
+                        username = row[2]
+                        phone = row[3]
+                        break
+                except Exception as dbe:
+                    logger.error(f"fastsend db {db_file}: {dbe}")
 
-                cursor.execute('SELECT group_id FROM order_groups')
-                order_groups = [row[0] for row in cursor.fetchall()]
+            # Buyurtma guruhlarini olish
+            order_groups = []
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT group_id FROM order_groups')
+                    order_groups = [row[0] for row in cursor.fetchall()]
+            except Exception as e:
+                logger.error(f"fastsend order_groups: {e}")
 
             if not order_groups:
                 order_groups = [ORDER_GROUP_ID]
 
             # Xabar matni tayyorlash
-            caption = f"🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>\n\n"
+            caption = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>\n\n"
             caption += f"👤 <a href='tg://user?id={src_user_id}'>{user_name}</a>\n"
             if username:
                 caption += f"🤙 @{username}\n"
             if order_text:
                 caption += f"\n💬 <b><i>{order_text}</i></b>\n"
             if phone:
-                p = phone.replace(' ', '').replace('-', '')
+                p = str(phone).replace(' ', '').replace('-', '')
                 if not p.startswith('+'):
                     p = '+998' + p if p.startswith('998') else '+' + p
                 caption += f"\n📞 {p}"
@@ -382,13 +395,14 @@ async def start_handler(message: types.Message):
             else:
                 inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={src_user_id}"}])
             if phone:
-                p = phone.replace(' ', '').replace('-', '')
+                p = str(phone).replace(' ', '').replace('-', '')
                 if not p.startswith('+'):
                     p = '+998' + p if p.startswith('998') else '+' + p
                 inline_buttons.append([{"text": f"📞 {p}", "url": f"https://onmap.uz/tel/{p}"}])
 
-            import aiohttp as _aiohttp
             sent = 0
+            errors = []
+            import aiohttp as _aiohttp
             for gid in order_groups:
                 try:
                     async with _aiohttp.ClientSession() as session:
@@ -403,15 +417,21 @@ async def start_handler(message: types.Message):
                             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
                             json=payload
                         ) as resp:
+                            resp_data = await resp.json()
                             if resp.status == 200:
                                 sent += 1
                             else:
-                                err = await resp.text()
-                                logger.error(f"Fastsend send {gid}: {resp.status} - {err}")
+                                err_msg = resp_data.get('description', str(resp.status))
+                                errors.append(f"{gid}: {err_msg}")
+                                logger.error(f"Fastsend send {gid}: {resp.status} - {err_msg}")
                 except Exception as e:
+                    errors.append(f"{gid}: {e}")
                     logger.error(f"Fastsend send {gid}: {e}")
 
-            await message.answer(f"✅ {sent} ta buyurtma guruhiga yuborildi!")
+            result_text = f"✅ {sent} ta buyurtma guruhiga yuborildi!"
+            if errors:
+                result_text += f"\n\n❌ Xatolar:\n" + "\n".join(errors[:3])
+            await message.answer(result_text)
         except Exception as e:
             logger.error(f"Fastsend deep link: {e}")
             await message.answer(f"❌ Xatolik: {e}")
