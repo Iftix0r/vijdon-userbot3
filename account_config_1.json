@@ -3,12 +3,14 @@
   "order_group_id": -1003036649453,
   "monitored_groups": [
     -1003036649453,
-    -1001676090950
+    -1001676090950,
+    -1002159687452
   ],
   "reklama_groups": [
     "@vijdontaxireklama",
     "@iymontaxi",
     "@sobirtaxi_vodiy_voha",
     "@iymontaxigroup"
-  ]
+  ],
+  "session_name": "userbot_profile_1"
 }

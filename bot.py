@@ -1540,6 +1540,55 @@ async def search_handler(message: types.Message):
 async def handle_text_message(message: types.Message):
     user_id = message.from_user.id
     
+    # Guruhga qo'shilish - faqat ID qabul qilish (DB ga tegmasdan)
+    if user_id in user_states and is_admin(user_id):
+        state = user_states.get(user_id, '')
+        if isinstance(state, str) and state.startswith('waiting_join_monitored_'):
+            profile_id = int(state.replace('waiting_join_monitored_', ''))
+            del user_states[user_id]
+            try:
+                group_id = int(message.text.strip())
+                _save_to_monitored(profile_id, group_id)
+                await message.answer(
+                    f"✅ <b>Guruh kuzatuvga qo'shildi!</b>\n\n"
+                    f"🆔 Guruh ID: <code>{group_id}</code>\n"
+                    f"👤 Profil: #{profile_id}\n\n"
+                    f"⚠️ Userbotni qayta ishga tushiring: <code>python main.py</code>",
+                    parse_mode='HTML'
+                )
+            except ValueError:
+                await message.answer("❌ Noto'g'ri format! Faqat ID raqam kiriting.\nMisol: -1001234567890")
+            return
+        elif state == 'waiting_join_group_link':
+            del user_states[user_id]
+            try:
+                group_id = int(message.text.strip())
+                import glob as _glob
+                added = []
+                for cfg_file in sorted(_glob.glob('account_config_*.json')):
+                    try:
+                        with open(cfg_file, 'r') as _f:
+                            cfg = json.load(_f)
+                        pid = cfg.get('account_id')
+                        if pid is not None:
+                            _save_to_monitored(pid, group_id)
+                            added.append(pid)
+                    except:
+                        pass
+                if added:
+                    await message.answer(
+                        f"✅ <b>Guruh barcha profillarga qo'shildi!</b>\n\n"
+                        f"🆔 Guruh ID: <code>{group_id}</code>\n"
+                        f"👥 Profillar: {', '.join(f'#{p}' for p in added)}\n\n"
+                        f"⚠️ Userbotni qayta ishga tushiring: <code>python main.py</code>",
+                        parse_mode='HTML'
+                    )
+                else:
+                    await message.answer("❌ Hech qanday profil topilmadi")
+            except ValueError:
+                await message.answer("❌ Noto'g'ri format! Faqat ID raqam kiriting.\nMisol: -1001234567890")
+            return
+
     # Profil sozlamalari - buyurtma guruhi o'zgartirish
     if user_id in user_states and is_admin(user_id):
         state = user_states[user_id]
@@ -2199,6 +2248,25 @@ def remove_reklama_group(group_id):
         logger.error(f"Error removing reklama group: {e}")
         raise
 
+def _save_to_monitored(profile_id, group_id):
+    """Guruh ID ni profil config ga saqlash (DB ga tegmasdan)"""
+    config_file = f'account_config_{profile_id}.json'
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                cfg = json.load(f)
+        else:
+            cfg = {'account_id': profile_id, 'monitored_groups': []}
+        monitored = cfg.get('monitored_groups', [])
+        if group_id not in monitored:
+            monitored.append(group_id)
+            cfg['monitored_groups'] = monitored
+            with open(config_file, 'w') as f:
+                json.dump(cfg, f, indent=2)
+    except Exception as e:
+        logger.error(f"Config saqlash: {e}")
+
+
 def block_user(user_id):
     try:
         with get_db_connection() as conn:
@@ -2237,6 +2305,7 @@ def admin_menu():
 def groups_menu():
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="🤝 Guruhga qo'shilish (ID)", callback_data="join_group_prompt")],
             [InlineKeyboardButton(text="📤 Buyurtma guruhlari", callback_data="list_order_groups")],
             [InlineKeyboardButton(text="➕ Buyurtma guruh qo'shish", callback_data="add_order_group_prompt")],
             [InlineKeyboardButton(text="➖ Buyurtma o'chirish", callback_data="remove_order_group_prompt")],
@@ -2403,7 +2472,7 @@ async def profile_config_handler(callback: types.CallbackQuery):
             inline_keyboard=[
                 [InlineKeyboardButton(text="📤 Buyurtma guruhi o'zgartirish", callback_data=f"set_order_group_{profile_id}")],
                 [InlineKeyboardButton(text="📋 Kuzatiladigan guruhlar", callback_data=f"list_monitored_{profile_id}")],
-                [InlineKeyboardButton(text="➕ Guruh qo'shish", callback_data=f"add_monitored_{profile_id}")],
+                [InlineKeyboardButton(text="🤝 Guruhga qo'shilish (ID)", callback_data=f"join_monitored_{profile_id}")],
                 [InlineKeyboardButton(text="➖ Guruh o'chirish", callback_data=f"remove_monitored_{profile_id}")],
                 [InlineKeyboardButton(text="🔙 Orqaga", callback_data="profile_settings_prompt")]
             ]
@@ -2425,6 +2494,38 @@ async def set_order_group_handler(callback: types.CallbackQuery):
     except Exception as e:
         logger.error(f"Set order group: {e}")
         await callback.message.edit_text(f"❌ Xatolik: {e}")
+
+@dp.callback_query(lambda c: c.data == "join_group_prompt")
+async def join_group_prompt_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q", show_alert=True)
+        return
+    user_states[callback.from_user.id] = 'waiting_join_group_link'
+    await callback.message.edit_text(
+        "🤝 <b>Guruhga qo'shilish</b>\n\n"
+        "Guruh ID raqamini yuboring:\n"
+        "💡 <i>Misol: -1001234567890</i>",
+        parse_mode='HTML'
+    )
+
+
+@dp.callback_query(lambda c: c.data and c.data.startswith("join_monitored_"))
+async def join_monitored_handler(callback: types.CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("❌ Ruxsat yo'q!")
+        return
+    try:
+        profile_id = int(callback.data.replace("join_monitored_", ""))
+        user_states[callback.from_user.id] = f'waiting_join_monitored_{profile_id}'
+        await callback.message.edit_text(
+            f"🤝 <b>Profil #{profile_id}: Guruh ID qo'shish</b>\n\n"
+            "Guruh ID raqamini yuboring:\n"
+            "💡 <i>Misol: -1001234567890</i>",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await callback.message.edit_text(f"❌ Xatolik: {e}")
+
 
 @dp.callback_query(lambda c: c.data and c.data.startswith("list_monitored_"))
 async def list_monitored_handler(callback: types.CallbackQuery):
