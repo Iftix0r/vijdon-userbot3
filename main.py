@@ -539,7 +539,7 @@ def create_message_handler(acc: AccountConfig):
                             "disable_web_page_preview": True,
                             "reply_markup": {"inline_keyboard": _buttons}
                         })
-                    print(f"✅ TEZ GURUH: {_uname} | {text_content[:30]}")
+                    logger.info(f"Tez guruh: {_uname} | {text_content[:30]}")
                 except Exception as _e:
                     logger.error(f"Tez guruh: {_e}")
         
@@ -680,7 +680,7 @@ def create_message_handler(acc: AccountConfig):
             return
         
         # Yo'lovchi xabari aniqlandi
-        print(f"🙋‍♂️ AKK#{acc.profile_id}: YO'LOVCHI - YUBORILMOQDA | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
+        logger.info(f"AKK#{acc.profile_id}: YO'LOVCHI | {clean_user_name or 'Noma\'lum'} | {text_content[:30]}...")
         
         user_type = '🙋♂️ Yolovchi'
         is_blocked = acc.is_user_blocked(user_id)
@@ -711,19 +711,16 @@ def create_message_handler(acc: AccountConfig):
                 cursor = conn.cursor()
                 cursor.execute('SELECT group_id FROM order_groups ORDER BY group_id')
                 all_order_groups = [row[0] for row in cursor.fetchall()]
-            
-            print(f"DEBUG: Barcha buyurtma guruhlari: {len(all_order_groups)} ta - {all_order_groups}")
-            
+
+            # acc.order_group_id ni doim qo'shish (jadval bo'sh bo'lsa ham ishlaydi)
+            if acc.order_group_id and acc.order_group_id not in all_order_groups:
+                all_order_groups.append(acc.order_group_id)
+
             if all_order_groups:
                 # Global deduplication uchun barcha guruhlar kaliti
                 all_groups_key = f"all_groups_{order_number}_{user_id}"
-                
                 if all_groups_key in global_processed_messages:
-                    # Bu zakaz barcha guruhlarga allaqachon yuborilgan
-                    print(f"DEBUG: Zakaz #{order_number} barcha guruhlarga allaqachon yuborilgan")
                     return
-                
-                # Global keshga qo'shish
                 global_processed_messages[all_groups_key] = current_time
                 logger.info(f"Zakaz #{order_number} -> {len(all_order_groups)} ta guruhga yuborilmoqda")
 

@@ -1099,7 +1099,7 @@ async def destination_handler(callback: types.CallbackQuery):
 
 
 # Joylashuv qabul qilish
-@dp.message(lambda message: message.location)
+@dp.message(lambda message: message.chat.type == "private" and message.location)
 async def location_handler(message: types.Message):
     if is_admin(message.from_user.id):
         return
@@ -1115,7 +1115,7 @@ async def location_handler(message: types.Message):
     )
 
 # Telefon raqam qabul qilish
-@dp.message(lambda message: message.contact)
+@dp.message(lambda message: message.chat.type == "private" and message.contact)
 async def contact_handler(message: types.Message):
     if is_admin(message.from_user.id):
         return
@@ -1536,7 +1536,7 @@ async def search_handler(message: types.Message):
     user_states[message.from_user.id] = 'waiting_search_query'
     await message.answer("🔍 Qidiruv uchun:\n\n👤 Foydalanuvchi ismini yoki\n🆔 Chat ID raqamini yozing:")
 
-@dp.message(lambda message: message.text and not message.text.startswith('/') and not message.text in ["📊 Statistika", "📝 So'zlar qo'shish", "⚙️ Sozlamalar", "🔍 Qidiruv", "🕜 Oxirgi 10 ta zakaz", "📋 Guruh statistikasi"])
+@dp.message(lambda message: message.chat.type == "private" and message.text and not message.text.startswith('/') and not message.text in ["📊 Statistika", "📝 So'zlar qo'shish", "⚙️ Sozlamalar", "🔍 Qidiruv", "🕜 Oxirgi 10 ta zakaz", "📋 Guruh statistikasi"])
 async def handle_text_message(message: types.Message):
     user_id = message.from_user.id
     
