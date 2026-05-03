@@ -1125,22 +1125,24 @@ async def contact_handler(message: types.Message):
         return
     
     taxi_users[message.from_user.id]["phone"] = message.contact.phone_number
-    
-    if "destination" not in taxi_users[message.from_user.id]:
-        await message.answer("🎯 Qayerga borishingizni tanlang:", reply_markup=destination_menu())
-        return
-    
+
     # Kontaktni saqlash
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('INSERT OR REPLACE INTO users (user_id, user_name, phone) VALUES (?, ?, ?)',
-                (message.from_user.id, message.from_user.first_name or 'Foydalanuvchi', taxi_users[message.from_user.id]["phone"]))
+                (message.from_user.id, message.from_user.first_name or 'Foydalanuvchi', message.contact.phone_number))
             conn.commit()
     except Exception as e:
         logger.error(f"Kontakt saqlash: {e}")
-    
-    await send_taxi_order(message, message.from_user, taxi_users[message.from_user.id]["phone"])
+
+    user_data = taxi_users[message.from_user.id]
+    if "free_text" in user_data:
+        await send_free_order(message, message.from_user, message.contact.phone_number)
+    elif "destination" not in user_data:
+        await message.answer("🎯 Qayerga borishingizni tanlang:", reply_markup=destination_menu())
+    else:
+        await send_taxi_order(message, message.from_user, message.contact.phone_number)
 
 # Zakaz yuborish funksiyasi (yo'nalish tanlash uchun)
 async def send_taxi_order_simple(message, user, phone):
@@ -1272,6 +1274,71 @@ async def send_taxi_order_simple(message, user, phone):
     # Foydalanuvchi holatini tozalash
     if user.id in taxi_users:
         del taxi_users[user.id]
+
+# Zakaz yuborish funksiyasi (erkin matn uchun)
+async def send_free_order(message, user, phone):
+    user_data = taxi_users.get(user.id, {})
+    free_text = user_data.get("free_text", "")
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COALESCE(MAX(order_number), 0) + 1 FROM zakazlar')
+            order_number = cursor.fetchone()[0]
+    except:
+        order_number = 1
+
+    formatted_phone = phone.replace(' ', '').replace('-', '')
+    if not formatted_phone.startswith('+'):
+        formatted_phone = '+' + ('998' + formatted_phone if not formatted_phone.startswith('998') else formatted_phone)
+
+    user_name = user.first_name or 'Foydalanuvchi'
+    if user.last_name:
+        user_name = f"{user.first_name} {user.last_name}"
+
+    buttons = [[InlineKeyboardButton(text="📞 Qo'ngiroq qilish", url=f"https://onmap.uz/tel/{formatted_phone}")]]
+    if user.username:
+        buttons.append([InlineKeyboardButton(text=f"👤 @{user.username}", url=f"https://t.me/{user.username}")])
+    order_keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    order_text = (
+        f"🚕 <b>ZAKAZ #{order_number}</b>\n"
+        f"{'='*25}\n\n"
+        f"👤 <a href='tg://user?id={user.id}'><b>{user_name}</b></a>\n"
+        f"📞 <b>Telefon:</b> {formatted_phone}\n\n"
+        f"📝 <b>Zakaz:</b>\n{free_text}\n\n"
+        f"<b>Mijoz:</b> {user_name}"
+    )
+
+    try:
+        sent = await bot.send_message(chat_id=ORDER_GROUP_ID, text=order_text, parse_mode='HTML', reply_markup=order_keyboard)
+        # Qo'shimcha guruhlar
+        try:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT group_id FROM order_groups WHERE group_id != ?', (ORDER_GROUP_ID,))
+                for (gid,) in cursor.fetchall():
+                    try:
+                        await bot.send_message(chat_id=gid, text=order_text, parse_mode='HTML', reply_markup=order_keyboard)
+                    except Exception:
+                        pass
+        except Exception as e:
+            logger.error(f"Qo'shimcha guruhlarga yuborishda xatolik: {e}")
+
+        await message.answer(
+            "✅ <b>Zakazingiz qabul qilindi!</b>\n\n"
+            "🚗 Tez orada haydovchilar siz bilan bog'lanishadi.\n\n"
+            "🔄 Yangi zakaz berish uchun /start bosing.",
+            reply_markup=types.ReplyKeyboardRemove(),
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        logger.error(f"send_free_order xatolik: {e}")
+        await message.answer("❌ Zakazni yuborishda xatolik yuz berdi. Qaytadan urinib ko'ring.")
+    finally:
+        if user.id in taxi_users:
+            del taxi_users[user.id]
+
 
 # Zakaz yuborish funksiyasi (joylashuv tanlash uchun)
 async def send_taxi_order(message, user, phone):
@@ -1893,6 +1960,33 @@ async def handle_text_message(message: types.Message):
     # Qidiruv funksiyasi - faqat admin uchun
     if is_admin(message.from_user.id):
         await search_user_func(message)
+        return
+
+    # Oddiy foydalanuvchi o'z matnini yozsa - erkin zakaz sifatida qabul qilish
+    free_text = message.text.strip()
+    if not free_text:
+        return
+    taxi_users[user_id] = {"free_text": free_text}
+
+    saved_phone = None
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT phone FROM users WHERE user_id = ?', (user_id,))
+            result = cursor.fetchone()
+            if result and result[0]:
+                saved_phone = result[0]
+    except Exception as e:
+        logger.error(f"Kontakt tekshirishda xatolik: {e}")
+
+    if saved_phone:
+        taxi_users[user_id]["phone"] = saved_phone
+        await send_free_order(message, message.from_user, saved_phone)
+    else:
+        await message.answer(
+            "📞 Telefon raqamingizni yuboring:",
+            reply_markup=phone_request_menu()
+        )
 
 async def search_user_func(message: types.Message):
     search_term = message.text.strip()
