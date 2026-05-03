@@ -1,7 +1,10 @@
 {
   "account_id": 1,
   "order_group_id": -1003036649453,
-  "monitored_groups": [],
+  "monitored_groups": [
+    -1003036649453,
+    -1001676090950
+  ],
   "reklama_groups": [
     "@vijdontaxireklama",
     "@iymontaxi",

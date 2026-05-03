@@ -724,16 +724,28 @@ def create_message_handler(acc: AccountConfig):
                 global_processed_messages[all_groups_key] = current_time
                 logger.info(f"Zakaz #{order_number} -> {len(all_order_groups)} ta guruhga yuborilmoqda")
 
+            # Bio va profil rasmini bir marta yuklash (loop tashqarisida)
+            user_bio = ""
+            profile_photo_bytes = None
+            if sender:
+                try:
+                    full_user = await event.client(GetFullUserRequest(sender.id))
+                    user_bio = full_user.full_user.about or ""
+                except:
+                    pass
+                try:
+                    import io as _io
+                    _buf = _io.BytesIO()
+                    await event.client.download_profile_photo(sender, file=_buf)
+                    _buf.seek(0)
+                    _data = _buf.read()
+                    if _data:
+                        profile_photo_bytes = _data
+                except:
+                    pass
+
             async with aiohttp.ClientSession() as session:
                 for gid in all_order_groups:
-                    user_bio = ""
-                    if sender:
-                        try:
-                            full_user = await event.client(GetFullUserRequest(sender.id))
-                            user_bio = full_user.full_user.about or ""
-                        except:
-                            pass
-
                     try:
                         user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
                         header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>" if not ai_checked else "🤖 <b>AI ZAKAZI | HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
@@ -756,7 +768,6 @@ def create_message_handler(acc: AccountConfig):
                             message_parts.append(f"📞 +{sender.phone}")
 
                         caption = "\n\n".join(message_parts)
-                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
                         inline_buttons = []
                         if user_id and user_id > 0:
@@ -774,20 +785,36 @@ def create_message_handler(acc: AccountConfig):
                         if not inline_buttons:
                             inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
 
-                        payload = {
-                            "chat_id": gid,
-                            "text": caption,
-                            "parse_mode": "HTML",
-                            "disable_web_page_preview": True,
-                            "reply_markup": {"inline_keyboard": inline_buttons}
-                        }
+                        import json as _json
+                        import io as _io
 
-                        async with session.post(url, json=payload) as resp:
+                        # HTTP so'rovni yuborish (rasm yoki matn)
+                        if profile_photo_bytes and len(caption) <= 1024:
+                            send_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+                            form = aiohttp.FormData()
+                            form.add_field('chat_id', str(gid))
+                            form.add_field('photo', profile_photo_bytes, filename='photo.jpg', content_type='image/jpeg')
+                            form.add_field('caption', caption)
+                            form.add_field('parse_mode', 'HTML')
+                            form.add_field('reply_markup', _json.dumps({"inline_keyboard": inline_buttons}))
+                            resp = await session.post(send_url, data=form)
+                        else:
+                            send_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                            payload = {
+                                "chat_id": gid,
+                                "text": caption,
+                                "parse_mode": "HTML",
+                                "disable_web_page_preview": True,
+                                "reply_markup": {"inline_keyboard": inline_buttons}
+                            }
+                            resp = await session.post(send_url, json=payload)
+
+                        async with resp:
                             response_text = await resp.text()
                             if resp.status == 200:
                                 logger.info(f"Zakaz #{order_number} -> {gid} | {user_name}")
                                 try:
-                                    bot_msg_id = (await resp.json()).get('result', {}).get('message_id')
+                                    bot_msg_id = (await resp.json(content_type=None)).get('result', {}).get('message_id')
                                 except:
                                     bot_msg_id = None
                                 if bot_msg_id and user_id and user_id > 0:
@@ -827,10 +854,9 @@ def create_message_handler(acc: AccountConfig):
                                         logger.error(f"Fallback xatolik: {fallback_error}")
                     except Exception as e:
                         logger.error(f"Akkaunt #{acc.profile_id} bot yuborish {gid}: {e}")
-        
+
         except Exception as e:
             logger.error(f"Akkaunt #{acc.profile_id} barcha guruhlarga yuborish: {e}")
-            print(f"DEBUG: Exception in all groups sending: {e}")
         
         # Reklama va qo'shimcha guruhlar (Faqat Reklama guruhlari uchun Bot API kerak bo'lishi mumkin, lekin user so'ragani uchun asosiy tugmalarni o'chiraman)
         try:
