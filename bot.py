@@ -168,7 +168,17 @@ def init_keywords_db():
     # Default adminlarni qo'shish
     for admin_id in ADMIN_IDS:
         cursor.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (admin_id,))
-    
+
+    # Tez qidiruv uchun indekslar (zakazlar/users mavjud bo'lsa)
+    try:
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_sana ON zakazlar (sana DESC)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_user_id ON zakazlar (user_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_user_type ON zakazlar (user_type)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_user_name ON users (user_name)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users (username)')
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 
@@ -285,13 +295,15 @@ def words_menu():
     return keyboard
 
 def is_admin(user_id):
+    if user_id in ADMIN_IDS:
+        return True
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT 1 FROM admins WHERE user_id = ?', (user_id,))
             return cursor.fetchone() is not None
     except:
-        return user_id in ADMIN_IDS
+        return False
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
@@ -401,9 +413,9 @@ async def start_handler(message: types.Message):
             sent = 0
             errors = []
             import aiohttp as _aiohttp
-            for gid in order_groups:
-                try:
-                    async with _aiohttp.ClientSession() as session:
+            async with _aiohttp.ClientSession() as session:
+                for gid in order_groups:
+                    try:
                         payload = {
                             "chat_id": gid,
                             "text": caption,
@@ -422,9 +434,9 @@ async def start_handler(message: types.Message):
                                 err_msg = resp_data.get('description', str(resp.status))
                                 errors.append(f"{gid}: {err_msg}")
                                 logger.error(f"Fastsend send {gid}: {resp.status} - {err_msg}")
-                except Exception as e:
-                    errors.append(f"{gid}: {e}")
-                    logger.error(f"Fastsend send {gid}: {e}")
+                    except Exception as e:
+                        errors.append(f"{gid}: {e}")
+                        logger.error(f"Fastsend send {gid}: {e}")
 
             result_text = f"✅ {sent} ta buyurtma guruhiga yuborildi!"
             if errors:
@@ -571,22 +583,16 @@ async def start_handler(message: types.Message):
 
 @dp.message(lambda message: message.text == "📊 Statistika")
 async def stats_handler(message: types.Message):
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT COUNT(*) FROM zakazlar")
-    total = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE user_type LIKE '%Haydovchi%'")
-    drivers = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE user_type LIKE '%Yolovchi%' OR user_type = '' OR user_type IS NULL")
-    passengers = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE DATE(sana) = DATE('now')")
-    today = cursor.fetchone()[0]
-    
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM zakazlar")
+        total = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE user_type LIKE '%Haydovchi%'")
+        drivers = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE user_type LIKE '%Yolovchi%' OR user_type = '' OR user_type IS NULL")
+        passengers = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE DATE(sana) = DATE('now')")
+        today = cursor.fetchone()[0]
     
     await message.answer(
         f"📊 Statistika:\n\n"
@@ -598,20 +604,17 @@ async def stats_handler(message: types.Message):
 
 @dp.message(lambda message: message.text == "📋 Guruh statistikasi")
 async def group_stats_handler(message: types.Message):
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT group_name, COUNT(*) as zakaz_soni 
-        FROM zakazlar 
-        WHERE group_name IS NOT NULL AND group_name != '' 
-        GROUP BY group_name 
-        ORDER BY zakaz_soni DESC 
-        LIMIT 15
-    """)
-    
-    results = cursor.fetchall()
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT group_name, COUNT(*) as zakaz_soni
+            FROM zakazlar
+            WHERE group_name IS NOT NULL AND group_name != ''
+            GROUP BY group_name
+            ORDER BY zakaz_soni DESC
+            LIMIT 15
+        """)
+        results = cursor.fetchall()
     
     if not results:
         await message.answer("📝 Guruh statistikasi yo'q")
@@ -625,21 +628,17 @@ async def group_stats_handler(message: types.Message):
 
 @dp.message(lambda message: message.text == "🕜 Oxirgi 10 ta zakaz")
 async def passengers_only_handler(message: types.Message):
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
-    
-    # Фақат йўловчилар филтри - user_type орқали
-    cursor.execute("""
-        SELECT z.id, z.order_number, z.user_id, z.user_type, z.message, z.group_name, z.group_id, z.sana, u.user_name, u.username, u.phone 
-        FROM zakazlar z 
-        LEFT JOIN users u ON z.user_id = u.user_id 
-        WHERE z.user_type LIKE '%Yolovchi%' OR z.user_type = '' OR z.user_type IS NULL
-        ORDER BY z.sana DESC 
-        LIMIT 10
-    """)
-    passenger_orders = cursor.fetchall()
-    
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT z.id, z.order_number, z.user_id, z.user_type, z.message, z.group_name, z.group_id, z.sana, u.user_name, u.username, u.phone
+            FROM zakazlar z
+            LEFT JOIN users u ON z.user_id = u.user_id
+            WHERE z.user_type LIKE '%Yolovchi%' OR z.user_type = '' OR z.user_type IS NULL
+            ORDER BY z.sana DESC
+            LIMIT 10
+        """)
+        passenger_orders = cursor.fetchall()
     
     if not passenger_orders:
         await message.answer("📭 Yo'lovchi zakazlari topilmadi")
@@ -2046,21 +2045,22 @@ def save_groups(groups):
 
 def load_order_groups():
     try:
-        conn = sqlite3.connect('zakazlar.db')
-        cursor = conn.cursor()
-        cursor.execute('SELECT group_id FROM order_groups')
-        groups = [row[0] for row in cursor.fetchall()]
-        conn.close()
-        return groups
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT group_id FROM order_groups')
+            return [row[0] for row in cursor.fetchall()]
     except:
         return []
 
 def save_order_group(group_id):
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
-    cursor.execute('INSERT OR REPLACE INTO order_groups (group_id) VALUES (?)', (group_id,))
-    conn.commit()
-    conn.close()
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT OR REPLACE INTO order_groups (group_id) VALUES (?)', (group_id,))
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error saving order group: {e}")
+        raise
 
 def remove_order_group(group_id):
     try:
@@ -2392,16 +2392,12 @@ async def list_groups_handler(callback: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data == "order_group_info")
 async def order_group_info_handler(callback: types.CallbackQuery):
     ORDER_GROUP_ID = os.getenv('ORDER_GROUP_ID')
-    
-    # Buyurtma guruhidagi zakazlar soni
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM zakazlar")
-    total_orders = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE DATE(sana) = DATE('now')")
-    today_orders = cursor.fetchone()[0]
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM zakazlar")
+        total_orders = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM zakazlar WHERE DATE(sana) = DATE('now')")
+        today_orders = cursor.fetchone()[0]
     
     text = f"📤 Buyurtma guruhi:\n\n"
     text += f"🆔 ID: {ORDER_GROUP_ID}\n"
@@ -2412,11 +2408,10 @@ async def order_group_info_handler(callback: types.CallbackQuery):
 
 @dp.callback_query(lambda c: c.data == "list_blocked")
 async def list_blocked_handler(callback: types.CallbackQuery):
-    conn = sqlite3.connect('zakazlar.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT user_id FROM blocked_users')
-    blocked = [str(row[0]) for row in cursor.fetchall()]
-    conn.close()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT user_id FROM blocked_users')
+        blocked = [str(row[0]) for row in cursor.fetchall()]
     
     if blocked:
         text = "🚫 Bloklangan:\n" + "\n".join(blocked)

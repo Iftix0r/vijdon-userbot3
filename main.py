@@ -61,308 +61,6 @@ GLOBAL_CACHE_SIZE = 50000
 GLOBAL_CACHE_CLEANUP_INTERVAL = 3600  # 1 soat
 
 
-# ========== UMUMIY DB (profiles, keywords, admins) ==========
-@contextmanager
-def get_main_db():
-    conn = None
-    try:
-        conn = sqlite3.connect('zakazlar.db', timeout=30)
-        conn.execute('PRAGMA journal_mode=WAL')
-        yield conn
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        logger.error(f"Main DB error: {e}")
-        raise
-    finally:
-        if conn:
-            conn.close()
-
-
-# ========== AKKAUNT KONFIGURATSIYASI ==========
-
-class AccountConfig:
-    """Har bir akkaunt uchun alohida konfiguratsiya"""
-    
-    def __init__(self, profile_id, session_name, phone):
-        self.profile_id = profile_id
-        self.session_name = session_name
-        self.phone = phone
-        self.config_file = f'account_config_{profile_id}.json'
-        self.db_file = f'zakazlar_account{profile_id}.db'
-        self.order_group_id = DEFAULT_ORDER_GROUP_ID
-        self.monitored_groups = []
-        self.reklama_groups = ["@vijdontaxireklama", "@iymontaxi", "@sobirtaxi_vodiy_voha", "@iymontaxigroup"]
-        self.bot_username = "vijdonuserbot"
-        self.keywords = {"driver": [], "passenger": []}
-        self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
-        self._load_config()
-        self._init_db()
-        self._load_keywords()
-    
-    def _load_config(self):
-        """JSON konfiguratsiyasini yuklash"""
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                self.order_group_id = config.get('order_group_id', DEFAULT_ORDER_GROUP_ID)
-                self.monitored_groups = config.get('monitored_groups', [])
-                self.reklama_groups = config.get('reklama_groups', self.reklama_groups)
-                logger.info(f"Akkaunt #{self.profile_id} konfiguratsiya yuklandi: guruhlar={len(self.monitored_groups)}, buyurtma={self.order_group_id}")
-            else:
-                # Yangi config yaratish - bo'sh guruhlar bilan (har akkaunt o'zi topadi)
-                self._save_config()
-                logger.info(f"Akkaunt #{self.profile_id} yangi konfiguratsiya yaratildi (guruhlar avtomatik topiladi)")
-        except Exception as e:
-            logger.error(f"Akkaunt #{self.profile_id} config yuklash xatolik: {e}")
-    
-    def _save_config(self):
-        """JSON konfiguratsiyasini saqlash"""
-        config = {
-            'account_id': self.profile_id,
-            'order_group_id': self.order_group_id,
-            'monitored_groups': self.monitored_groups,
-            'reklama_groups': self.reklama_groups
-        }
-        with open(self.config_file, 'w') as f:
-            json.dump(config, f, indent=2)
-    
-    def add_group(self, group_id):
-        if group_id not in self.monitored_groups:
-            self.monitored_groups.append(group_id)
-            self._save_config()
-            return True
-        return False
-    
-    def remove_group(self, group_id):
-        if group_id in self.monitored_groups:
-            self.monitored_groups.remove(group_id)
-            self._save_config()
-            return True
-        return False
-    
-    @contextmanager
-    def get_db(self):
-        """Akkaunt uchun alohida DB ulanish"""
-        conn = None
-        try:
-            conn = sqlite3.connect(self.db_file, timeout=30)
-            conn.execute('PRAGMA journal_mode=WAL')
-            yield conn
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"Akkaunt #{self.profile_id} DB error: {e}")
-            raise
-        finally:
-            if conn:
-                conn.close()
-    
-    def _init_db(self):
-        """Akkaunt bazasini yaratish"""
-        try:
-            with self.get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS users (
-                        user_id INTEGER PRIMARY KEY,
-                        user_name TEXT,
-                        username TEXT,
-                        phone TEXT,
-                        first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        last_seen DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS zakazlar (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        order_number INTEGER,
-                        user_id INTEGER,
-                        user_type TEXT,
-                        message TEXT,
-                        group_name TEXT,
-                        group_id INTEGER,
-                        sana DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users (user_id)
-                    )
-                ''')
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS blocked_users (
-                        user_id INTEGER PRIMARY KEY,
-                        blocked_date DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS order_groups (
-                        group_id INTEGER PRIMARY KEY,
-                        group_name TEXT,
-                        added_date DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
-                conn.commit()
-                logger.info(f"Akkaunt #{self.profile_id} DB tayyor: {self.db_file}")
-        except Exception as e:
-            logger.error(f"Akkaunt #{self.profile_id} DB init xatolik: {e}")
-            raise
-    
-    def _load_keywords(self):
-        """Kalit so'zlarni umumiy bazadan yuklash"""
-        try:
-            with get_main_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT word FROM keywords WHERE type = ?', ('passenger',))
-                passenger_words = [row[0] for row in cursor.fetchall()]
-                cursor.execute('SELECT word FROM keywords WHERE type = ?', ('driver',))
-                driver_words = [row[0] for row in cursor.fetchall()]
-                self.keywords = {"passenger": passenger_words, "driver": driver_words}
-        except Exception as e:
-            logger.error(f"Keywords yuklash xatolik: {e}")
-            self.keywords = {"passenger": [], "driver": []}
-    
-    def is_user_blocked(self, user_id):
-        try:
-            with self.get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT 1 FROM blocked_users WHERE user_id = ?', (user_id,))
-                return cursor.fetchone() is not None
-        except:
-            return False
-    
-    def save_user_and_zakaz(self, user_id, user_name, username, phone, user_type, message, group_name, group_id):
-        """Buyurtmani akkaunt bazasiga saqlash"""
-        try:
-            with self.get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('''
-                    INSERT OR REPLACE INTO users (user_id, user_name, username, phone, first_seen, last_seen)
-                    VALUES (?, ?, ?, ?, 
-                            COALESCE((SELECT first_seen FROM users WHERE user_id = ?), CURRENT_TIMESTAMP),
-                            CURRENT_TIMESTAMP)
-                ''', (user_id, user_name, username, phone, user_id))
-                
-                cursor.execute('SELECT COALESCE(MAX(order_number), 0) + 1 FROM zakazlar')
-                next_order_number = cursor.fetchone()[0]
-                
-                cursor.execute('''
-                    INSERT INTO zakazlar (order_number, user_id, user_type, message, group_name, group_id)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (next_order_number, user_id, user_type, message, group_name, group_id))
-                
-                cursor.execute('''
-                    DELETE FROM zakazlar WHERE id NOT IN (
-                        SELECT id FROM zakazlar ORDER BY sana DESC LIMIT 50
-                    )
-                ''')
-                conn.commit()
-                return next_order_number
-        except Exception as e:
-            logger.error(f"Akkaunt #{self.profile_id} zakaz saqlash: {e}")
-            return 0
-
-
-# ========== YORDAMCHI FUNKSIYALAR ==========
-
-def load_profiles():
-    """profiles jadvalidan aktiv profillarni olish"""
-    try:
-        with get_main_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT id, session_name, phone FROM profiles WHERE is_active = 1 ORDER BY id')
-            return cursor.fetchall()
-    except Exception as e:
-        logger.error(f"Profillar yuklash: {e}")
-        return []
-
-# Legacy funksiyalar (eski rejim uchun)
-def load_groups():
-    try:
-        with open('groups.json', 'r') as f:
-            return json.load(f)
-    except:
-        return []
-
-def save_groups(groups):
-    with open('groups.json', 'w') as f:
-        json.dump(groups, f)
-
-async def get_bot_username():
-    try:
-        async with aiohttp.ClientSession() as session:
-            url = f"https://api.telegram.org/bot{BOT_TOKEN}/getMe"
-            async with session.get(url) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data.get('result', {}).get('username', 'vijdonuserbot')
-        return 'vijdonuserbot'
-    except Exception as e:
-        logger.error(f"Bot userneymini olishda xatolik: {e}")
-        return 'vijdonuserbot'
-
-def reklama_matndan_olib_tashlash(text):
-    """Reklama xabaridan telefon raqamlar, havolalar va @username ni olib tashlash"""
-    if not text or not text.strip():
-        return text
-    t = text
-    t = re.sub(r'\+998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
-    t = re.sub(r'998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}', '', t)
-    t = re.sub(r'\b9\d{8}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{3}\s+\d{4}\b', '', t)
-    t = re.sub(r'\b9\d\s+\d{7}\b', '', t)
-    t = re.sub(r'\b9\d\s*[-]?\s*\d{3}\s*[-]?\s*\d{2}\s*[-]?\s*\d{2}\b', '', t)
-    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\b\d{2}\s+\d{3}\s+\d{4}\b', '', t)
-    t = re.sub(r'\b\d{3}\s+\d{2}\s+\d{2}\s+\d{2}\b', '', t)
-    t = re.sub(r'\d{2}[\s\-]\d{3}[\s\-]\d{2}[\s\-]\d{2}', '', t)
-    t = re.sub(r'[Tt]el\.?\s*:?\s*', '', t)
-    t = re.sub(r'[Tt]elefon\.?\s*:?\s*', '', t)
-    t = re.sub(r'[Rr]aqam\.?\s*:?\s*', '', t)
-    t = re.sub(r'https?://[^\s]+', '', t)
-    t = re.sub(r't\.me/[^\s]+', '', t)
-    t = re.sub(r'tg://[^\s]+', '', t)
-    t = re.sub(r'@\w+', '', t)
-    return re.sub(r'\s+', ' ', t).strip()
-from contextlib import contextmanager
-
-
-load_dotenv()
-
-# Logging sozlash
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('userbot.log'),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
-ERROR_FILE = "userbot_errors.txt"
-
-class ErrorFileHandler(logging.Handler):
-    def emit(self, record):
-        if record.levelno >= logging.ERROR:
-            try:
-                with open(ERROR_FILE, "a", encoding="utf-8") as f:
-                    f.write(self.format(record)[:300] + "\n")
-            except:
-                pass
-logger.addHandler(ErrorFileHandler())
-
-
-# ========== UMUMIY SOZLAMALAR ==========
-API_ID = int(os.getenv('API_ID'))
-API_HASH = os.getenv('API_HASH')
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-DEFAULT_ORDER_GROUP_ID = int(os.getenv('ORDER_GROUP_ID'))
-HAYDOVCHI_ADMIN_USERNAME = os.getenv('HAYDOVCHI_ADMIN_USERNAME', '').strip().lstrip('@')
-
-client = TelegramClient('userbot', API_ID, API_HASH)  # Legacy - profillar bo'lmaganda
-
-MAX_PROCESSED_CACHE = 10000
-
 
 # ========== UMUMIY DB (profiles, keywords, admins) ==========
 @contextmanager
@@ -637,7 +335,7 @@ def reklama_matndan_olib_tashlash(text):
     return re.sub(r'\s+', ' ', t).strip()
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
-FAST_GROUP_ID = -5270167448  # Tez yuborish guruhi - kalit so'zsiz
+FAST_GROUP_ID = int(os.getenv('FAST_GROUP_ID', '-5270167448'))
 
 async def openai_check_passenger(text):
     """OpenAI orqali xabar yo'lovchimi yoki yo'qligini tekshirish"""
@@ -663,17 +361,6 @@ async def openai_check_passenger(text):
         logger.error(f"OpenAI tekshiruv xatolik: {e}")
     return False
 
-
-    """Database'dan buyurtma xabari header'ini o'qish"""
-    try:
-        with get_main_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT setting_value FROM settings WHERE setting_key = ?', 
-                         ('order_message_header',))
-            result = cursor.fetchone()
-            return result[0] if result else '🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>'
-    except:
-        return '🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>'
 
 def init_main_database():
     """Umumiy bazani yaratish (profiles, keywords, admins)"""
@@ -741,6 +428,11 @@ def init_main_database():
                     added_date DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_sana ON zakazlar (sana DESC)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_user_id ON zakazlar (user_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_user_type ON zakazlar (user_type)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_user_name ON users (user_name)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users (username)')
             conn.commit()
             logger.info("Umumiy baza tayyor")
     except Exception as e:
@@ -783,9 +475,11 @@ def create_message_handler(acc: AccountConfig):
             acc.processed_messages.clear()
         acc.processed_messages.add(msg_key)
         
-        # Konfiguratsiyani yangilash (buyurtma guruhi o'zgargan bo'lishi mumkin)
-        acc._load_config()
-        
+        # Konfiguratsiyani yangilash (har 60 sekundda, har xabarda emas)
+        if current_time - getattr(acc, '_last_config_reload', 0) > 60:
+            acc._load_config()
+            acc._last_config_reload = current_time
+
         me = await event.client.get_me()
         bot_id = int(BOT_TOKEN.split(':')[0])
         
@@ -953,8 +647,10 @@ def create_message_handler(acc: AccountConfig):
         if chat and hasattr(chat, 'title') and chat.title:
             chat_title = chat.title
         
-        # Kalit so'z tekshirish 
-        acc._load_keywords()  # Yangilash
+        # Kalit so'z tekshirish (har 60 sekundda yangilanadi)
+        if current_time - getattr(acc, '_last_keywords_reload', 0) > 60:
+            acc._load_keywords()
+            acc._last_keywords_reload = current_time
         text_lower = text_content.lower().strip()
         
         # Bloklash so'zini tekshirish
@@ -1029,71 +725,58 @@ def create_message_handler(acc: AccountConfig):
                 
                 # Global keshga qo'shish
                 global_processed_messages[all_groups_key] = current_time
-                print(f"DEBUG: Zakaz #{order_number} barcha guruhlar uchun global keshga qo'shildi")
-            
-            for gid in all_order_groups:
-                # Bio olish
-                user_bio = ""
-                if sender:
+                logger.info(f"Zakaz #{order_number} -> {len(all_order_groups)} ta guruhga yuborilmoqda")
+
+            async with aiohttp.ClientSession() as session:
+                for gid in all_order_groups:
+                    user_bio = ""
+                    if sender:
+                        try:
+                            full_user = await event.client(GetFullUserRequest(sender.id))
+                            user_bio = full_user.full_user.about or ""
+                        except:
+                            pass
+
                     try:
-                        full_user = await event.client(GetFullUserRequest(sender.id))
-                        user_bio = full_user.full_user.about or ""
-                    except:
-                        pass
-                
-                try:
-                    user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                    header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>" if not ai_checked else "🤖 <b>AI ZAKAZI | HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
-                    message_parts = [f"{header} <b>#{order_number}</b>"]
-                    message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-                    if username:
-                        message_parts.append(f"🤙 @{username}")
-                    if user_bio:
-                        message_parts.append(f"ℹ️ <b><i>{user_bio}</i></b>")
-                    if text_content and text_content.strip():
-                        message_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-                    if phones:
-                        phone_num = phones[0].replace(' ', '').replace('-', '')
-                        if phone_num.startswith('998'):
-                            phone_num = '+' + phone_num
-                        elif not phone_num.startswith('+998'):
-                            phone_num = '+998' + phone_num
-                        message_parts.append(f"📞 {phone_num}")
-                    elif sender and hasattr(sender, 'phone') and sender.phone:
-                        message_parts.append(f"📞 +{sender.phone}")
-                    
-                    caption = "\n\n".join(message_parts)
-                    
-                    # Bot API orqali tugmalar bilan yuborish
-                    async with aiohttp.ClientSession() as session:
+                        user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
+                        header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>" if not ai_checked else "🤖 <b>AI ZAKAZI | HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
+                        message_parts = [f"{header} <b>#{order_number}</b>"]
+                        message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
+                        if username:
+                            message_parts.append(f"🤙 @{username}")
+                        if user_bio:
+                            message_parts.append(f"ℹ️ <b><i>{user_bio}</i></b>")
+                        if text_content and text_content.strip():
+                            message_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
+                        if phones:
+                            phone_num = phones[0].replace(' ', '').replace('-', '')
+                            if phone_num.startswith('998'):
+                                phone_num = '+' + phone_num
+                            elif not phone_num.startswith('+998'):
+                                phone_num = '+998' + phone_num
+                            message_parts.append(f"📞 {phone_num}")
+                        elif sender and hasattr(sender, 'phone') and sender.phone:
+                            message_parts.append(f"📞 +{sender.phone}")
+
+                        caption = "\n\n".join(message_parts)
                         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                        
-                        # Tugmalarni tayyorlash
+
                         inline_buttons = []
-                        
-                        # Mijoz ismi tugmasi - bosilganda profil ochiladi
                         if user_id and user_id > 0:
                             if username:
                                 inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
                             else:
                                 inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={user_id}"}])
-                        
-                        # Telefon tugmasi
                         if phone_to_call:
                             inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
-                        
-                        # Xabarni ko'rish tugmasi - faqat username yo'q bo'lsa
                         if not username and message_link and message_link != "#":
                             inline_buttons.append([{"text": "🔍 Xabarni ko'rish", "url": message_link}])
-                        
-                        # Bloklash tugmasi - message_id keyinroq edit qilinadi
                         if user_id and user_id > 0:
                             block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
                             inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
-                        
                         if not inline_buttons:
                             inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
-                        
+
                         payload = {
                             "chat_id": gid,
                             "text": caption,
@@ -1101,23 +784,18 @@ def create_message_handler(acc: AccountConfig):
                             "disable_web_page_preview": True,
                             "reply_markup": {"inline_keyboard": inline_buttons}
                         }
-                        
+
                         async with session.post(url, json=payload) as resp:
                             response_text = await resp.text()
                             if resp.status == 200:
-                                print(f"✅ BOT ASOSIY GURUH: ZAKAZ #{order_number} -> {gid}")
-                                print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'} | 🎯 Tugmalar: {len(inline_buttons)} ta")
-                                logger.info(f"Bot orqali Zakaz #{order_number} yuborildi")
-                                # Bot xabarining message_id sini olish
+                                logger.info(f"Zakaz #{order_number} -> {gid} | {user_name}")
                                 try:
                                     bot_msg_id = (await resp.json()).get('result', {}).get('message_id')
                                 except:
                                     bot_msg_id = None
-                                # message_id bilan bloklash tugmasini yangilash
                                 if bot_msg_id and user_id and user_id > 0:
                                     try:
                                         new_block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}_{gid}_{bot_msg_id}"
-                                        # Tugmalarni yangilash
                                         new_buttons = []
                                         for row in inline_buttons:
                                             new_row = []
@@ -1128,47 +806,30 @@ def create_message_handler(acc: AccountConfig):
                                                     new_row.append(btn)
                                             new_buttons.append(new_row)
                                         edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageReplyMarkup"
-                                        edit_payload = {
-                                            "chat_id": gid,
-                                            "message_id": bot_msg_id,
-                                            "reply_markup": {"inline_keyboard": new_buttons}
-                                        }
-                                        async with session.post(edit_url, json=edit_payload) as edit_resp:
+                                        async with session.post(edit_url, json={"chat_id": gid, "message_id": bot_msg_id, "reply_markup": {"inline_keyboard": new_buttons}}) as edit_resp:
                                             if edit_resp.status != 200:
-                                                logger.error(f"Edit markup xatolik: {await edit_resp.text()}")
+                                                logger.error(f"Edit markup: {await edit_resp.text()}")
                                     except Exception as edit_err:
                                         logger.error(f"Bloklash tugmasi edit: {edit_err}")
-                                # Akkaunt orqali faqat mijoz ismi - bot xabarga reply
                                 if sender:
                                     try:
                                         mijoz_text = f"[👤 {user_name}](tg://user?id={user_id})"
                                         await event.client.send_message(entity=gid, message=mijoz_text, parse_mode='md', link_preview=False, reply_to=bot_msg_id)
-                                        print(f"✅ AKKAUNT MIJOZ: ZAKAZ #{order_number} -> {gid}")
                                     except Exception as acc_err:
                                         logger.error(f"Akkaunt mijoz yuborish: {acc_err}")
                             else:
-                                logger.error(f"Bot API xatolik: {resp.status} - {response_text}")
-                                print(f"❌ BOT API XATOLIK: {resp.status} - {response_text}")
-                                
-                                # Agar bot guruhga kira olmasa, userbot orqali yuborish
+                                logger.error(f"Bot API xatolik {gid}: {resp.status} - {response_text}")
                                 if resp.status == 400 and "chat not found" in response_text.lower():
-                                    logger.warning(f"Bot {gid} guruhga kira olmadi, userbot orqali yuborish...")
-                                    print(f"⚠️ Bot guruhga kira olmadi, userbot orqali fallback...")
                                     try:
                                         success, used_acc_id = await send_to_any_available(gid, caption, sender, None)
                                         if success:
-                                            print(f"✅ FALLBACK USERBOT: AKK#{used_acc_id} ZAKAZ #{order_number} -> {gid}")
-                                            print(f"   👤 {user_name} | 📞 {phone_to_call or 'Yo\'q'}")
-                                            logger.info(f"Fallback: Akkaunt #{used_acc_id} Zakaz #{order_number} yuborildi")
+                                            logger.info(f"Fallback: Akkaunt #{used_acc_id} Zakaz #{order_number} -> {gid}")
                                         else:
-                                            logger.error(f"Hech bir akkaunt ham {gid} guruhga kira olmadi")
-                                            print(f"❌ FALLBACK HAM ISHLAMADI: Hech bir akkaunt {gid} guruhga kira olmadi")
+                                            logger.error(f"Fallback ham ishlamadi: {gid}")
                                     except Exception as fallback_error:
-                                        logger.error(f"Fallback yuborish xatolik: {fallback_error}")
-                                        print(f"❌ FALLBACK XATOLIK: {fallback_error}")
-                except Exception as e:
-                    logger.error(f"Akkaunt #{acc.profile_id} bot orqali yuborish: {e}")
-                    print(f"DEBUG: Exception in bot sending: {e}")
+                                        logger.error(f"Fallback xatolik: {fallback_error}")
+                    except Exception as e:
+                        logger.error(f"Akkaunt #{acc.profile_id} bot yuborish {gid}: {e}")
         
         except Exception as e:
             logger.error(f"Akkaunt #{acc.profile_id} barcha guruhlarga yuborish: {e}")
@@ -1181,9 +842,6 @@ def create_message_handler(acc: AccountConfig):
                 
                 # Reklama guruhlarga yuborish
                 try:
-                    # Reklama guruhlar config'dan olinadi
-                    acc._load_config()
-                    
                     clean_text = reklama_matndan_olib_tashlash(text_content or "")
                     special_message = f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
                     if clean_text:
@@ -1327,56 +985,48 @@ async def main():
                 c = TelegramClient(session_name, API_ID, API_HASH)
                 accounts.append((c, acc))
             
-            if len(accounts) > 1:
-                print("✅ USERBOT ISHGA TUSHDI! (Ko'p akkaunt rejimi)")
-                print("=" * 60)
-                for c, acc in accounts:
-                    print(f"  📱 Akkaunt #{acc.profile_id}: {acc.phone or acc.session_name}")
-                    print(f"     📤 Buyurtma: {acc.order_group_id}")
-                    print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
-                    print(f"     💾 Baza: {acc.db_file}")
-                print("=" * 60 + "\n")
-                
-                async def run_one(idx):
-                    c, acc = accounts[idx]
-                    try:
-                        await run_account(c, acc)
-                    except Exception as e:
-                        logger.error(f"Akkaunt #{acc.profile_id} xatolik: {e}")
-                        print(f"❌ Akkaunt #{acc.profile_id}: {e}")
-                
-                await asyncio.gather(*[run_one(i) for i in range(len(accounts))])
-            else:
-                # Legacy: bitta userbot sessiya
-                await client.connect()
-                if not await client.is_user_authorized():
-                    phone = input("Telefon raqamingiz (+998xxxxxxxxx): ")
-                    print("🤙 Kod yuborildi...")
-                    await client.send_code_request(phone)
-                    code = input("Telegram kodini kiriting: ")
-                    try:
-                        await client.sign_in(phone, code)
-                    except SessionPasswordNeededError:
-                        await client.sign_in(password=input("2FA paroli: "))
-                
-                # Legacy rejimda eski usulda ishlash
-                legacy_groups = load_groups()
-                
-                async def legacy_msg_handler(event):
-                    # Eski usulda ishlash (bitta akkaunt)
-                    pass
-            
-            # Legacy uchun ham AccountConfig yaratish
+            for c, acc in accounts:
+                print(f"  📱 Akkaunt #{acc.profile_id}: {acc.phone or acc.session_name}")
+                print(f"     📤 Buyurtma: {acc.order_group_id}")
+                print(f"     📊 Guruhlar: {len(acc.monitored_groups)}")
+                print(f"     💾 Baza: {acc.db_file}")
+            print("=" * 60)
+            print(f"✅ USERBOT ISHGA TUSHDI! ({len(accounts)} akkaunt)")
+            print("=" * 60 + "\n")
+
+            async def run_one(idx):
+                c, acc = accounts[idx]
+                try:
+                    await run_account(c, acc)
+                except Exception as e:
+                    logger.error(f"Akkaunt #{acc.profile_id} xatolik: {e}")
+                    print(f"❌ Akkaunt #{acc.profile_id}: {e}")
+
+            await asyncio.gather(*[run_one(i) for i in range(len(accounts))])
+        else:
+            # Profil yo'q: legacy 'userbot' sessiyasini ishlatish
+            await client.connect()
+            if not await client.is_user_authorized():
+                phone_input = input("Telefon raqamingiz (+998xxxxxxxxx): ")
+                print("🤙 Kod yuborildi...")
+                await client.send_code_request(phone_input)
+                code = input("Telegram kodini kiriting: ")
+                try:
+                    await client.sign_in(phone_input, code)
+                except SessionPasswordNeededError:
+                    await client.sign_in(password=input("2FA paroli: "))
+
+            legacy_groups = load_groups()
             legacy_acc = AccountConfig(0, 'userbot', '')
             legacy_acc.monitored_groups = legacy_groups
             legacy_acc.db_file = 'zakazlar.db'
             legacy_acc.bot_username = bot_username
-            
+
             register_account_handlers(client, legacy_acc)
             register_account_commands(client, legacy_acc)
-            
+
             print("\n" + "=" * 60)
-            print("✅ USERBOT ISHGA TUSHDI! (Bitta akkaunt)")
+            print("✅ USERBOT ISHGA TUSHDI! (Legacy rejim)")
             print("=" * 60)
             print(f"📊 Guruhlar: {len(legacy_groups)} | Buyurtma: {DEFAULT_ORDER_GROUP_ID}")
             print("=" * 60 + "\n")
