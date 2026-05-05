@@ -3,6 +3,7 @@ from telethon.tl.functions.users import GetFullUserRequest
 from telethon.errors import SessionPasswordNeededError
 import asyncio
 import aiohttp
+import io
 import os
 import json
 import sqlite3
@@ -60,6 +61,30 @@ global_processed_messages = {}
 GLOBAL_CACHE_SIZE = 50000
 GLOBAL_CACHE_CLEANUP_INTERVAL = 3600  # 1 soat
 
+# Modul darajasida precompile — har xabarda qayta kompilatsiya bo'lmaydi
+_EMOJI_RE = re.compile(
+    "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF"
+    "\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF"
+    "\U00002702-\U000027B0\U000024C2-\U0001F251]+",
+    flags=re.UNICODE,
+)
+_PHONE_PATTERNS = [
+    re.compile(r'\+998\d{9}'),
+    re.compile(r'998\d{9}'),
+    re.compile(r'\d{9}'),
+    re.compile(r'\d{2}\s\d{3}\s\d{2}\s\d{2}'),
+    re.compile(r'\d{2}-\d{3}-\d{2}-\d{2}'),
+]
+
+
+def _normalize_phone(phone: str) -> str:
+    """Telefon raqamni +998XXXXXXXXX formatga keltirish"""
+    p = str(phone).replace(' ', '').replace('-', '')
+    if p.startswith('998') and not p.startswith('+'):
+        return '+' + p
+    if not p.startswith('+'):
+        return '+998' + p
+    return p
 
 
 # ========== UMUMIY DB (profiles, keywords, admins) ==========
@@ -97,6 +122,9 @@ class AccountConfig:
         self.bot_username = "vijdonuserbot"
         self.keywords = {"driver": [], "passenger": []}
         self.processed_messages = set()  # Har akkaunt uchun ALOHIDA dublikat kesh
+        self._last_config_reload = 0.0
+        self._last_keywords_reload = 0.0
+        self._cached_me = None  # get_me() natijasini keshlab saqlash
         self._load_config()
         self._init_db()
         self._load_keywords()
@@ -476,49 +504,45 @@ def create_message_handler(acc: AccountConfig):
         acc.processed_messages.add(msg_key)
         
         # Konfiguratsiyani yangilash (har 60 sekundda, har xabarda emas)
-        if current_time - getattr(acc, '_last_config_reload', 0) > 60:
+        if current_time - acc._last_config_reload > 60:
             acc._load_config()
             acc._last_config_reload = current_time
 
-        me = await event.client.get_me()
+        # get_me() ni keshdan olish — har xabarda Telegram API chaqirmaydi
+        if acc._cached_me is None:
+            acc._cached_me = await event.client.get_me()
+        me = acc._cached_me
         bot_id = int(BOT_TOKEN.split(':')[0])
-        
+
         if event.sender_id == me.id:
             return
         if event.sender_id == bot_id:
             return
-        
+
         # Anti-flood tekshiruvi (1 minutda max 3 ta zakaz)
         sender_id = event.sender_id
         if sender_id:
-            current_time = asyncio.get_event_loop().time()
             if sender_id not in user_message_times:
                 user_message_times[sender_id] = []
-            
-            # 1 minutdan eski vaqtlarni tozalash
             user_message_times[sender_id] = [t for t in user_message_times[sender_id] if current_time - t < FLOOD_WINDOW]
-            
             if len(user_message_times[sender_id]) >= FLOOD_LIMIT:
-                # Limitdan oshib ketdi, ignore qilinadi
                 return
-            
-            # Yangi vaqtni qo'shish
             user_message_times[sender_id].append(current_time)
-        
+
         # Akkaunt guruhlariga avtomatik qo'shish
         if event.chat_id not in acc.monitored_groups:
             acc.add_group(event.chat_id)
             pname = f"@{me.username}" if me.username else str(me.id)
             print(f"  📥 Akkaunt #{acc.profile_id}: Yangi guruh qo'shildi: {event.chat_id} (profil: {pname})")
             logger.info(f"Akkaunt #{acc.profile_id} yangi guruh: {event.chat_id}")
-        
+
         text_content = event.text or ""
         if not text_content:
             return
-        
+
         # Tez guruhga yuborish - barcha filtrlardan OLDIN
         if len(text_content) <= 80 and not event.message.sticker:
-            _has_emoji = bool(re.search(u"[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\U00002702-\U000027B0\U000024C2-\U0001F251]", text_content))
+            _has_emoji = bool(_EMOJI_RE.search(text_content))
             if not _has_emoji:
                 try:
                     _sender = await event.get_sender()
@@ -548,15 +572,7 @@ def create_message_handler(acc: AccountConfig):
         if event.message.sticker:
             return
         
-        emoji_pattern = re.compile("[" 
-            u"\U0001F600-\U0001F64F"
-            u"\U0001F300-\U0001F5FF"
-            u"\U0001F680-\U0001F6FF"
-            u"\U0001F1E0-\U0001F1FF"
-            u"\U00002702-\U000027B0"
-            u"\U000024C2-\U0001F251"
-            "]+", flags=re.UNICODE)
-        if emoji_pattern.search(text_content):
+        if _EMOJI_RE.search(text_content):
             return
         
         sender = None
@@ -606,13 +622,12 @@ def create_message_handler(acc: AccountConfig):
             except:
                 pass
         
-        # Telefon qidirish
-        phone_patterns = [r'\+998\d{9}', r'998\d{9}', r'\d{9}', r'\d{2}\s\d{3}\s\d{2}\s\d{2}', r'\d{2}-\d{3}-\d{2}-\d{2}']
+        # Telefon qidirish (precompiled patterns ishlatiladi)
         phones = []
-        for pattern in phone_patterns:
-            found = re.findall(pattern, text_content)
-            phones.extend(found)
-            if phones:
+        for pat in _PHONE_PATTERNS:
+            found = pat.findall(text_content)
+            if found:
+                phones.extend(found)
                 break
         
         # Foydalanuvchi ma'lumotlarini olish
@@ -648,7 +663,7 @@ def create_message_handler(acc: AccountConfig):
             chat_title = chat.title
         
         # Kalit so'z tekshirish (har 60 sekundda yangilanadi)
-        if current_time - getattr(acc, '_last_keywords_reload', 0) > 60:
+        if current_time - acc._last_keywords_reload > 60:
             acc._load_keywords()
             acc._last_keywords_reload = current_time
         text_lower = text_content.lower().strip()
@@ -696,13 +711,9 @@ def create_message_handler(acc: AccountConfig):
         # Telefon raqam tayyorlash
         phone_to_call = None
         if phones:
-            phone_to_call = phones[0].replace(' ', '').replace('-', '')
+            phone_to_call = _normalize_phone(phones[0])
         elif sender and hasattr(sender, 'phone') and sender.phone:
-            phone_to_call = sender.phone
-        
-        if phone_to_call:
-            if phone_to_call.startswith('998'): phone_to_call = '+' + phone_to_call
-            elif not phone_to_call.startswith('+'): phone_to_call = '+998' + phone_to_call
+            phone_to_call = _normalize_phone(sender.phone)
 
         # BARCHA BUYURTMA GURUHLARGA BOT ORQALI YUBORISH (tenglik bilan)
         try:
@@ -734,8 +745,7 @@ def create_message_handler(acc: AccountConfig):
                 except:
                     pass
                 try:
-                    import io as _io
-                    _buf = _io.BytesIO()
+                    _buf = io.BytesIO()
                     await event.client.download_profile_photo(sender, file=_buf)
                     _buf.seek(0)
                     _data = _buf.read()
@@ -744,50 +754,52 @@ def create_message_handler(acc: AccountConfig):
                 except:
                     pass
 
+            # Caption va tugmalarni loop TASHQARISIDA bir marta yasash
+            user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
+            header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>" if not ai_checked else "🤖 <b>AI ZAKAZI | HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
+            message_parts = [f"{header} <b>#{order_number}</b>"]
+            message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
+            if username:
+                message_parts.append(f"🤙 @{username}")
+            if user_bio:
+                message_parts.append(f"ℹ️ <b><i>{user_bio}</i></b>")
+            if text_content and text_content.strip():
+                message_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
+            if phones:
+                message_parts.append(f"📞 {_normalize_phone(phones[0])}")
+            elif sender and hasattr(sender, 'phone') and sender.phone:
+                message_parts.append(f"📞 {_normalize_phone(sender.phone)}")
+            caption = "\n\n".join(message_parts)
+
+            inline_buttons = []
+            if user_id and user_id > 0:
+                if username:
+                    inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
+                else:
+                    inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={user_id}"}])
+            if phone_to_call:
+                inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
+            if not username and message_link and message_link != "#":
+                inline_buttons.append([{"text": "🔍 Xabarni ko'rish", "url": message_link}])
+            if user_id and user_id > 0:
+                block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
+                inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
+            if not inline_buttons:
+                inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
+
+            # Reklama xabarini ham bir marta yasash
+            clean_text = reklama_matndan_olib_tashlash(text_content or "")
+            reklama_msg = "🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
+            if clean_text:
+                reklama_msg += f"<i>{clean_text}</i>\n\n"
+            reklama_msg += "<b>Buyurtmalar guruhiga qo'shilish uchun 👇</b>"
+            admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
+            reklama_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
+
+            # Bitta aiohttp sessiyasida ham order, ham reklama guruhlariga yuboramiz
             async with aiohttp.ClientSession() as session:
                 for gid in all_order_groups:
                     try:
-                        user_name = clean_user_name.strip() if clean_user_name.strip() else 'Foydalanuvchi'
-                        header = "🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕</b>" if not ai_checked else "🤖 <b>AI ZAKAZI | HURMATLI TAXI HAYDOVCHILARI 🆕</b>"
-                        message_parts = [f"{header} <b>#{order_number}</b>"]
-                        message_parts.append(f"👤 <a href='tg://user?id={user_id}'>{user_name}</a>")
-                        if username:
-                            message_parts.append(f"🤙 @{username}")
-                        if user_bio:
-                            message_parts.append(f"ℹ️ <b><i>{user_bio}</i></b>")
-                        if text_content and text_content.strip():
-                            message_parts.append(f"💬 <b><i>{text_content.strip()}</i></b>")
-                        if phones:
-                            phone_num = phones[0].replace(' ', '').replace('-', '')
-                            if phone_num.startswith('998'):
-                                phone_num = '+' + phone_num
-                            elif not phone_num.startswith('+998'):
-                                phone_num = '+998' + phone_num
-                            message_parts.append(f"📞 {phone_num}")
-                        elif sender and hasattr(sender, 'phone') and sender.phone:
-                            message_parts.append(f"📞 +{sender.phone}")
-
-                        caption = "\n\n".join(message_parts)
-
-                        inline_buttons = []
-                        if user_id and user_id > 0:
-                            if username:
-                                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
-                            else:
-                                inline_buttons.append([{"text": f"👤 {user_name}", "url": f"tg://user?id={user_id}"}])
-                        if phone_to_call:
-                            inline_buttons.append([{"text": f"📞 {phone_to_call}", "url": f"https://onmap.uz/tel/{phone_to_call}"}])
-                        if not username and message_link and message_link != "#":
-                            inline_buttons.append([{"text": "🔍 Xabarni ko'rish", "url": message_link}])
-                        if user_id and user_id > 0:
-                            block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}"
-                            inline_buttons.append([{"text": "🚫 Bloklash", "url": block_link}])
-                        if not inline_buttons:
-                            inline_buttons.append([{"text": "📄 Ko'rish", "callback_data": f"view_message_{user_id}_{order_number}"}])
-
-                        import json as _json
-                        import io as _io
-
                         # HTTP so'rovni yuborish (rasm yoki matn)
                         if profile_photo_bytes and len(caption) <= 1024:
                             send_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
@@ -796,7 +808,7 @@ def create_message_handler(acc: AccountConfig):
                             form.add_field('photo', profile_photo_bytes, filename='photo.jpg', content_type='image/jpeg')
                             form.add_field('caption', caption)
                             form.add_field('parse_mode', 'HTML')
-                            form.add_field('reply_markup', _json.dumps({"inline_keyboard": inline_buttons}))
+                            form.add_field('reply_markup', json.dumps({"inline_keyboard": inline_buttons}))
                             resp = await session.post(send_url, data=form)
                         else:
                             send_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -820,15 +832,10 @@ def create_message_handler(acc: AccountConfig):
                                 if bot_msg_id and user_id and user_id > 0:
                                     try:
                                         new_block_link = f"https://t.me/{acc.bot_username}?start=block_{user_id}_{gid}_{bot_msg_id}"
-                                        new_buttons = []
-                                        for row in inline_buttons:
-                                            new_row = []
-                                            for btn in row:
-                                                if btn.get('text') == '🚫 Bloklash':
-                                                    new_row.append({"text": "🚫 Bloklash", "url": new_block_link})
-                                                else:
-                                                    new_row.append(btn)
-                                            new_buttons.append(new_row)
+                                        new_buttons = [
+                                            [{"text": "🚫 Bloklash", "url": new_block_link} if btn.get('text') == '🚫 Bloklash' else btn for btn in row]
+                                            for row in inline_buttons
+                                        ]
                                         edit_url = f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageReplyMarkup"
                                         async with session.post(edit_url, json={"chat_id": gid, "message_id": bot_msg_id, "reply_markup": {"inline_keyboard": new_buttons}}) as edit_resp:
                                             if edit_resp.status != 200:
@@ -855,34 +862,17 @@ def create_message_handler(acc: AccountConfig):
                     except Exception as e:
                         logger.error(f"Akkaunt #{acc.profile_id} bot yuborish {gid}: {e}")
 
-        except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} barcha guruhlarga yuborish: {e}")
-        
-        # Reklama va qo'shimcha guruhlar (Faqat Reklama guruhlari uchun Bot API kerak bo'lishi mumkin, lekin user so'ragani uchun asosiy tugmalarni o'chiraman)
-        try:
-            async with aiohttp.ClientSession() as session:
-                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                
-                # Reklama guruhlarga yuborish
+                # Reklama guruhlariga yuborish (xuddi shu sessiyada)
                 try:
-                    clean_text = reklama_matndan_olib_tashlash(text_content or "")
-                    special_message = f"🚕 <b>Assalomu alaykum hurmatli haydovchilar</b>\n\n"
-                    if clean_text:
-                        special_message += f"<i>{clean_text}</i>\n\n"
-                    special_message += f"<b>Buyurtmalar guruhiga qo'shilish uchun 👇</b>"
-                    
-                    admin_link = f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}" if HAYDOVCHI_ADMIN_USERNAME else f"https://t.me/{acc.bot_username}?start=haydovchi"
-                    special_buttons = [[{"text": "👨‍💻 Operator bilan bog'lanish", "url": admin_link}]]
-                    
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                     for special_group in acc.reklama_groups:
                         try:
-                            special_payload = {
+                            async with session.post(url, json={
                                 "chat_id": special_group,
-                                "text": special_message,
+                                "text": reklama_msg,
                                 "parse_mode": "HTML",
-                                "reply_markup": {"inline_keyboard": special_buttons}
-                            }
-                            async with session.post(url, json=special_payload) as resp:
+                                "reply_markup": {"inline_keyboard": reklama_buttons}
+                            }) as resp:
                                 if resp.status == 200:
                                     print(f"✅ AKK#{acc.profile_id} REKLAMA -> {special_group}")
                             await asyncio.sleep(0.3)
@@ -890,8 +880,9 @@ def create_message_handler(acc: AccountConfig):
                             logger.error(f"Akkaunt #{acc.profile_id} reklama {special_group}: {e}")
                 except Exception as e:
                     logger.error(f"Akkaunt #{acc.profile_id} reklama: {e}")
+
         except Exception as e:
-            logger.error(f"Akkaunt #{acc.profile_id} reklama bot session: {e}")
+            logger.error(f"Akkaunt #{acc.profile_id} barcha guruhlarga yuborish: {e}")
     
     return message_handler
 

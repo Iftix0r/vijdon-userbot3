@@ -1,4 +1,6 @@
 import asyncio
+import aiohttp
+from collections import deque
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
@@ -26,21 +28,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Admin hisobotlari uchun - oxirgi xatoliklar
-recent_errors = []
-MAX_RECENT_ERRORS = 10
+# Admin hisobotlari uchun - deque O(1) append/pop
+recent_errors: deque = deque(maxlen=10)
 
 class ErrorCollectorHandler(logging.Handler):
     def emit(self, record):
         if record.levelno >= logging.ERROR:
-            msg = self.format(record)
-            recent_errors.append(msg[:200])
-            if len(recent_errors) > MAX_RECENT_ERRORS:
-                recent_errors.pop(0)
+            recent_errors.append(self.format(record)[:200])
 
 error_handler = ErrorCollectorHandler()
 error_handler.setLevel(logging.ERROR)
 logger.addHandler(error_handler)
+
+
+def _normalize_phone(phone: str) -> str:
+    """Telefon raqamni +998XXXXXXXXX formatga keltirish"""
+    p = str(phone).replace(' ', '').replace('-', '')
+    if p.startswith('998') and not p.startswith('+'):
+        return '+' + p
+    if not p.startswith('+'):
+        return '+998' + p
+    return p
 
 @contextmanager
 def get_db_connection():
@@ -71,7 +79,8 @@ dp = Dispatcher()
 
 # Ma'lumotlar bazasini ishga tushirish
 def init_keywords_db():
-    conn = sqlite3.connect('zakazlar.db')
+    conn = sqlite3.connect('zakazlar.db', timeout=30)
+    conn.execute('PRAGMA journal_mode=WAL')
     cursor = conn.cursor()
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS keywords (
@@ -135,7 +144,6 @@ def init_keywords_db():
             completed_date DATETIME
         )
     ''')
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -144,32 +152,24 @@ def init_keywords_db():
             updated_date DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS blocked_orders_group (
             group_id INTEGER PRIMARY KEY,
             added_date DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS pending_orders_group (
             group_id INTEGER PRIMARY KEY,
             added_date DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-    # Default settings
     cursor.execute('''
         INSERT OR IGNORE INTO settings (setting_key, setting_value)
         VALUES (?, ?)
     ''', ('order_message_header', '🚕 <b>ASSALOMU ALEYKUM HURMATLI TAXI HAYDOVCHILARI 🆕 YANGI BUYURTMA KELDI!</b>'))
-    
-    # Default adminlarni qo'shish
     for admin_id in ADMIN_IDS:
         cursor.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (admin_id,))
-
-    # Tez qidiruv uchun indekslar (zakazlar/users mavjud bo'lsa)
     try:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_sana ON zakazlar (sana DESC)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_zakazlar_user_id ON zakazlar (user_id)')
@@ -178,7 +178,6 @@ def init_keywords_db():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_username ON users (username)')
     except Exception:
         pass
-
     conn.commit()
     conn.close()
 
@@ -313,9 +312,7 @@ async def start_handler(message: types.Message):
     if len(args) > 1 and args[1] == 'haydovchi':
         buttons = []
         if HAYDOVCHI_ADMIN_PHONE:
-            phone = HAYDOVCHI_ADMIN_PHONE.replace(' ', '').replace('-', '')
-            if not phone.startswith('+'):
-                phone = '+998' + phone if phone.startswith('998') else '+' + phone
+            phone = _normalize_phone(HAYDOVCHI_ADMIN_PHONE)
             buttons.append([InlineKeyboardButton(text="📞 Admin bilan bog'lanish", url=f"https://onmap.uz/tel/{phone}")])
         if HAYDOVCHI_ADMIN_USERNAME:
             buttons.append([InlineKeyboardButton(text=f"👤 @{HAYDOVCHI_ADMIN_USERNAME}", url=f"https://t.me/{HAYDOVCHI_ADMIN_USERNAME}")])
@@ -395,9 +392,7 @@ async def start_handler(message: types.Message):
             if order_text:
                 caption += f"\n💬 <b><i>{order_text}</i></b>\n"
             if phone:
-                p = str(phone).replace(' ', '').replace('-', '')
-                if not p.startswith('+'):
-                    p = '+998' + p if p.startswith('998') else '+' + p
+                p = _normalize_phone(phone)
                 caption += f"\n📞 {p}"
 
             # Tugmalar
@@ -405,15 +400,12 @@ async def start_handler(message: types.Message):
             if username:
                 inline_buttons.append([{"text": f"👤 {user_name}", "url": f"https://t.me/{username}"}])
             if phone:
-                p = str(phone).replace(' ', '').replace('-', '')
-                if not p.startswith('+'):
-                    p = '+998' + p if p.startswith('998') else '+' + p
+                p = _normalize_phone(phone)
                 inline_buttons.append([{"text": f"📞 {p}", "url": f"https://onmap.uz/tel/{p}"}])
 
             sent = 0
             errors = []
-            import aiohttp as _aiohttp
-            async with _aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession() as session:
                 for gid in order_groups:
                     try:
                         payload = {
@@ -471,9 +463,7 @@ async def start_handler(message: types.Message):
                 
                 buttons = []
                 if order[6]: # phone
-                    phone = order[6].replace(' ', '').replace('-', '')
-                    if not phone.startswith('+'):
-                        phone = '+998' + phone if phone.startswith('998') else '+998' + phone
+                    phone = _normalize_phone(order[6])
                     buttons.append([InlineKeyboardButton(text="📞 Qo'ng'iroq qilish", url=f"https://onmap.uz/tel/{phone}")])
                 
                 if order[5]: # username
@@ -545,9 +535,7 @@ async def start_handler(message: types.Message):
                 if user[1]:  # username
                     buttons.append([InlineKeyboardButton(text=f"👤 @{user[1]}", url=f"https://t.me/{user[1]}")])
                 if user[2]:  # phone
-                    phone = user[2].replace(' ', '').replace('-', '')
-                    if not phone.startswith('+'):
-                        phone = '+' + phone
+                    phone = _normalize_phone(user[2])
                     buttons.append([InlineKeyboardButton(text=f"📞 {phone}", url=f"https://onmap.uz/tel/{phone}")])
                 
                 keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
@@ -699,11 +687,7 @@ async def passengers_only_handler(message: types.Message):
         buttons = []
         
         if phones:
-            phone = phones[0].replace(' ', '').replace('-', '')
-            if phone.startswith('998'):
-                phone = '+' + phone
-            elif not phone.startswith('+998'):
-                phone = '+998' + phone
+            phone = _normalize_phone(phones[0])
             buttons.append([InlineKeyboardButton(text=f"📞 {phone}", url=f"https://onmap.uz/tel/{phone}")])
         
         # Username tugmasi (akkaunt orqali) - faqat username bo'lsa
@@ -1157,13 +1141,7 @@ async def send_taxi_order_simple(message, user, phone):
     except:
         order_number = 1
     
-    # Telefon raqamni formatlash
-    formatted_phone = phone.replace(' ', '').replace('-', '')
-    if not formatted_phone.startswith('+'):
-        if formatted_phone.startswith('998'):
-            formatted_phone = '+' + formatted_phone
-        else:
-            formatted_phone = '+998' + formatted_phone
+    formatted_phone = _normalize_phone(phone)
     
     # Zakazni guruhga yuborish
     user_name = f"{user.first_name or 'Foydalanuvchi'}"
@@ -1344,13 +1322,7 @@ async def send_free_order(message, user, phone):
 async def send_taxi_order(message, user, phone):
     user_data = taxi_users[user.id]
     
-    # Telefon raqamni formatlash
-    formatted_phone = phone.replace(' ', '').replace('-', '')
-    if not formatted_phone.startswith('+'):
-        if formatted_phone.startswith('998'):
-            formatted_phone = '+' + formatted_phone
-        else:
-            formatted_phone = '+998' + formatted_phone
+    formatted_phone = _normalize_phone(phone)
     
     # Zakazni guruhga yuborish
     user_name = f"{user.first_name or 'Foydalanuvchi'}"
@@ -2145,11 +2117,7 @@ async def search_user_func(message: types.Message):
         
         # Telefon tugmasi
         if phones:
-            phone = phones[0].replace(' ', '').replace('-', '')
-            if phone.startswith('998'):
-                phone = '+' + phone
-            elif not phone.startswith('+998'):
-                phone = '+998' + phone
+            phone = _normalize_phone(phones[0])
             buttons.append([InlineKeyboardButton(text=f"📞 {phone}", url=f"https://onmap.uz/tel/{phone}")])
         
         # Username tugmasi (akkaunt orqali) - faqat username bo'lsa

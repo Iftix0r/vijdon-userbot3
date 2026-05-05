@@ -1,26 +1,23 @@
 import re
 
+# Precompiled regex — har chaqiruvda qayta kompilatsiya qilinmaydi
+_RE_ANCHOR = re.compile(r"<a href='(tg://user\?id=\d+)'>(.*?)</a>")
+_RE_BOLD   = re.compile(r'<b>(.*?)</b>', re.DOTALL)
+_RE_ITALIC = re.compile(r'<i>(.*?)</i>', re.DOTALL)
+_RE_TAG    = re.compile(r'<[^>]+>')
+
 # Barcha akkauntlar uchun umumiy client pool
 all_accounts = []
 
 def register_account(client, acc):
-    """Akkauntni global ro'yxatga qo'shish"""
     all_accounts.append((client, acc))
 
 def html_to_telethon(text):
     """HTML formatdagi matnni Telethon uchun to'g'ri formatga o'tkazish"""
-    # <a href='tg://user?id=123'>Ism</a> -> [Ism](tg://user?id=123)
-    text = re.sub(
-        r"<a href='(tg://user\?id=\d+)'>(.*?)</a>",
-        lambda m: f"[{m.group(2)}]({m.group(1)})",
-        text
-    )
-    # <b>...</b> -> **...**
-    text = re.sub(r'<b>(.*?)</b>', r'**\1**', text, flags=re.DOTALL)
-    # <i>...</i> -> __...__
-    text = re.sub(r'<i>(.*?)</i>', r'__\1__', text, flags=re.DOTALL)
-    # Qolgan HTML teglarini olib tashlash
-    text = re.sub(r'<[^>]+>', '', text)
+    text = _RE_ANCHOR.sub(lambda m: f"[{m.group(2)}]({m.group(1)})", text)
+    text = _RE_BOLD.sub(r'**\1**', text)
+    text = _RE_ITALIC.sub(r'__\1__', text)
+    text = _RE_TAG.sub('', text)
     return text
 
 async def send_to_any_available(order_group_id, caption, sender=None, keyboard=None):
